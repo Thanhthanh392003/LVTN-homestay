@@ -1,0 +1,30 @@
+:root {
+    --bg: #f6faf7;
+    --card: #ffffff;
+}
+
+html,
+body,
+#root {
+    height: 100%;
+}
+
+body {
+    margin: 0;
+    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    background:
+        radial-gradient(900px 600px at 10% -10%, #dcfce780 0%, transparent 50%),
+        radial-gradient(900px 600px at 90% 10%, #bbf7d080 0%, transparent 50%),
+        var(--bg);
+}
+
+.ant-card {
+    border: 1px solid rgba(0, 0, 0, .05);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, .06);
+}
+
+.link {
+    color: #16a34a;
+    text-decoration: none;
+    font-weight: 600;
+}
