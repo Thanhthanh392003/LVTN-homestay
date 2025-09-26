@@ -1,3 +1,4 @@
+// backend/src/routes/user.route.js
 const router = require('express').Router();
 const ctrl = require('../controllers/user.controller');
 const requireLogin = require('../middlewares/requireLogin');

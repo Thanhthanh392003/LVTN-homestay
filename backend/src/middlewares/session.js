@@ -1,15 +1,12 @@
-// src/middlewares/session.js
+// middlewares/session.js
 const session = require('express-session');
-
 module.exports = session({
-    name: 'sid',                 // tên cookie (mặc định là connect.sid) -> dễ nhìn hơn
-    secret: 'homestay_secret',   // đổi thành chuỗi bí mật của bạn
+    secret: 'your-secret',
     resave: false,
-    saveUninitialized: false,    // quan trọng: chỉ set cookie khi có dữ liệu session
+    saveUninitialized: false,
     cookie: {
         httpOnly: true,
-        sameSite: 'lax',
-        secure: false,             // chạy HTTP localhost -> phải false
-        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 ngày
+        sameSite: 'lax',   // dev: 'lax' OK, nếu cross-site thật sự -> 'none' + secure:true
+        secure: false,     // dev HTTP thì false
     }
 });

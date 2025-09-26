@@ -1,93 +1,153 @@
+// src/services/homestay.service.js
 const knex = require('../database/knex');
 const ApiError = require('../api-error');
 
-function homestayRepo() {
-    return knex('HOMESTAY as H')
-        .leftJoin('IMAGE as I', function () {
-            this.on('I.H_ID', '=', 'H.H_ID').andOn('I.IsMain', '=', knex.raw('1'));
-        });
+function homestayTable() {
+    return knex('HOMESTAY');
 }
 
-async function listHomestays(query = {}) {
-    const q = homestayRepo().select('H.*', 'I.Image_url as main_image');
-    if (query.city) q.where('H.H_City', query.city);
-    if (query.min != null) q.where('H.Price_per_day', '>=', Number(query.min));
-    if (query.max != null) q.where('H.Price_per_day', '<=', Number(query.max));
-    if (query.status) q.where('H.Status', String(query.status));
-    return q.orderBy('H.Created_at', 'desc');
+// Chuẩn hoá payload theo cột trong DB
+function normalize(payload = {}) {
+    return {
+        H_Name: payload.H_Name ?? payload.name,
+        H_Address: payload.H_Address ?? payload.address,
+        H_City: payload.H_City ?? payload.city,
+        H_Description: payload.H_Description ?? payload.description ?? null,
+        Price_per_day:
+            payload.Price_per_day != null
+                ? Number.parseFloat(payload.Price_per_day)
+                : Number.parseFloat(payload.price_per_day),
+        Status: payload.Status ?? payload.status ?? 'active',
+        U_ID: payload.U_ID ?? payload.owner_id, // truyền từ controller (session/body)
+    };
+}
+
+// CREATE
+async function createHomestay(payload) {
+    const data = normalize(payload);
+
+    if (!data.U_ID) throw new ApiError(401, 'Missing U_ID (owner).');
+    if (!data.H_Name || typeof data.H_Name !== 'string') {
+        throw new ApiError(400, 'H_Name must be a non-empty string.');
+    }
+    if (!data.H_Address || !data.H_City) {
+        throw new ApiError(400, 'H_Address and H_City are required.');
+    }
+    if (Number.isNaN(data.Price_per_day)) {
+        throw new ApiError(400, 'Price_per_day is invalid.');
+    }
+
+    const [insertId] = await homestayTable().insert({
+        H_Name: data.H_Name.trim(),
+        H_Address: data.H_Address.trim(),
+        H_City: data.H_City.trim(),
+        H_Description: data.H_Description,
+        Price_per_day: data.Price_per_day, // knex sẽ map DECIMAL ok
+        Status: data.Status || 'active',
+        U_ID: data.U_ID,
+    });
+
+    const H_ID = typeof insertId === 'object' ? insertId?.H_ID || insertId?.id : insertId;
+    return { H_ID, ...data };
+}
+
+// LIST (filter + pagination)
+async function getManyHomestays(query = {}) {
+    const name = query.name || query.H_Name || '';
+    const city = query.H_City || '';
+    let page = parseInt(query.page ?? '1', 10);
+    let limit = parseInt(query.limit ?? '8', 10);
+    if (isNaN(page) || page < 1) page = 1;
+    if (isNaN(limit) || limit < 1) limit = 8;
+    const offset = (page - 1) * limit;
+
+    const whereFn = (b) => {
+        if (name) b.where('H_Name', 'like', `%${name}%`);
+        if (city) b.andWhere('H_City', 'like', `%${city}%`);
+    };
+
+    const rows = await homestayTable()
+        .where(whereFn)
+        .select(
+            'H_ID',
+            'U_ID',
+            'H_Name',
+            'H_Address',
+            'H_City',
+            'H_Description',
+            'Price_per_day',
+            'Status',
+            'Created_at',
+            'Updated_at'
+        )
+        .limit(limit)
+        .offset(offset);
+
+    const [{ count }] = await homestayTable().where(whereFn).count('H_ID as count');
+    const totalRecords = Number(count) || 0;
+    const lastPage = totalRecords === 0 ? 1 : Math.ceil(totalRecords / limit);
+
+    return { metadata: { totalRecords, firstPage: 1, lastPage, page, limit }, homestays: rows };
 }
 
 async function getHomestayById(id) {
-    const info = await knex('HOMESTAY').where('H_ID', id).first();
-    if (!info) throw new ApiError(404, 'Homestay not found');
-
-    const images = await knex('IMAGE').select('Image_ID', 'Image_url', 'IsMain', 'Sort_order')
-        .where('H_ID', id).orderBy('Sort_order', 'asc');
-
-    const amenities = await knex('HOMESTAY_AMENITY as HA')
-        .join('AMENITY as A', 'A.Amenity_ID', 'HA.Amenity_ID')
-        .select('A.Amenity_ID', 'A.A_Name').where('HA.H_ID', id);
-
-    return { info, images, amenities };
+    return homestayTable()
+        .where('H_ID', id)
+        .select(
+            'H_ID',
+            'U_ID',
+            'H_Name',
+            'H_Address',
+            'H_City',
+            'H_Description',
+            'Price_per_day',
+            'Status',
+            'Created_at',
+            'Updated_at'
+        )
+        .first();
 }
 
-async function createHomestay(req, body) {
-    const uId = req.session?.user_id;
-    const roleId = req.session?.role_id;
-    if (!uId) throw new ApiError(401, 'Unauthorized');
-    if (![1, 2].includes(roleId)) throw new ApiError(403, 'Forbidden');
+async function updateHomestay(id, payload) {
+    const existed = await homestayTable().where('H_ID', id).first();
+    if (!existed) return null;
 
-    const { name, address, city, description, price_per_day } = body || {};
-    if (!name || !address || !city || price_per_day == null) throw new ApiError(400, 'Missing required fields');
+    const data = normalize(payload);
+    // Không cho đổi owner từ API
+    delete data.U_ID;
 
-    const [id] = await knex('HOMESTAY').insert({
-        U_ID: uId, H_Name: name, H_Address: address, H_City: city,
-        H_Description: description || null, Price_per_day: Number(price_per_day),
-        Status: 'pending',
-    });
-    return id;
+    // Loại field undefined để tránh set NULL không mong muốn
+    const update = {};
+    for (const [k, v] of Object.entries(data)) {
+        if (v !== undefined) update[k] = v;
+    }
+    if ('Price_per_day' in update && Number.isNaN(update.Price_per_day)) {
+        throw new ApiError(400, 'Price_per_day is invalid.');
+    }
+
+    await homestayTable().where('H_ID', id).update(update);
+    return { ...existed, ...update, H_ID: id };
 }
 
-async function updateHomestay(req, id, body) {
-    const uId = req.session?.user_id;
-    const roleId = req.session?.role_id;
-    if (!uId) throw new ApiError(401, 'Unauthorized');
-
-    const own = await knex('HOMESTAY').select('U_ID').where('H_ID', id).first();
-    if (!own) throw new ApiError(404, 'Homestay not found');
-    if (own.U_ID !== uId && roleId !== 1) throw new ApiError(403, 'Forbidden');
-
-    const patch = {};
-    if (body.name != null) patch.H_Name = body.name;
-    if (body.address != null) patch.H_Address = body.address;
-    if (body.city != null) patch.H_City = body.city;
-    if (body.description != null) patch.H_Description = body.description;
-    if (body.price_per_day != null) patch.Price_per_day = Number(body.price_per_day);
-    if (!Object.keys(patch).length) throw new ApiError(400, 'No data to update');
-
-    await knex('HOMESTAY').update({ ...patch, Updated_at: knex.fn.now() }).where('H_ID', id);
+async function deleteHomestay(id) {
+    const existed = await homestayTable().where('H_ID', id).first();
+    if (!existed) return null;
+    await homestayTable().where('H_ID', id).del();
+    return existed;
 }
 
-async function updateHomestayStatus(req, id, status) {
-    const roleId = req.session?.role_id;
-    if (roleId !== 1) throw new ApiError(403, 'Forbidden');
-    if (!['pending', 'approved', 'inactive', 'rejected'].includes(String(status))) throw new ApiError(400, 'Invalid status');
-    const ret = await knex('HOMESTAY').update({ Status: status, Updated_at: knex.fn.now() }).where('H_ID', id);
-    if (!ret) throw new ApiError(404, 'Homestay not found');
-}
-
-async function deleteHomestay(req, id) {
-    const uId = req.session?.user_id;
-    const roleId = req.session?.role_id;
-    if (!uId) throw new ApiError(401, 'Unauthorized');
-
-    const own = await knex('HOMESTAY').select('U_ID').where('H_ID', id).first();
-    if (!own) throw new ApiError(404, 'Homestay not found');
-    if (own.U_ID !== uId && roleId !== 1) throw new ApiError(403, 'Forbidden');
-
-    await knex('HOMESTAY').where('H_ID', id).del();
+async function getHomestaysByOwner(ownerId) {
+    return homestayTable()
+        .where('U_ID', ownerId)
+        .select('H_ID', 'U_ID', 'H_Name', 'H_Address', 'H_City', 'H_Description', 'Price_per_day', 'Status', 'Created_at', 'Updated_at')
+        .orderBy('H_ID', 'desc');
 }
 
 module.exports = {
-    listHomestays, getHomestayById, createHomestay, updateHomestay, updateHomestayStatus, deleteHomestay
+    createHomestay,
+    getManyHomestays,
+    getHomestayById,
+    updateHomestay,
+    deleteHomestay,
+    getHomestaysByOwner,
 };

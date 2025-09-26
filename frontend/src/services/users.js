@@ -1,11 +1,19 @@
+// frontend/src/services/users.js
 import api from "../lib/axios";
 
+const take = (res) => res?.data?.data ?? res?.data ?? res;
+
 export const usersApi = {
+    // lấy hồ sơ hiện tại
     me() {
-        return api.get("/api/users/me");
+        return api.get("/api/users/me").then(take);
     },
-    register(payload) {
-        // payload gồm: role_id, fullname, email, password(<=10), phone, address, gender, birthday, status
-        return api.post("/api/users/register", payload);
+    // cập nhật hồ sơ (khớp BE: /me/profile)
+    updateMe(payload) {
+        return api.put("/api/users/me/profile", payload).then(take);
+    },
+    // (tuỳ chọn) đổi mật khẩu nếu bạn dùng
+    changePassword(payload) {
+        return api.put("/api/users/me/password", payload).then(take);
     },
 };
