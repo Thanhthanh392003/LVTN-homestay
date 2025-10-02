@@ -7,15 +7,16 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 
 import HomeAdmin from "./pages/HomeAdmin";
-import HomeOwner from "./pages/HomeOwner";           // /owner/homestays
+import AdminUsers from "./pages/AdminUsers";
+import AdminHomestays from "./pages/AdminHomestays"; // 👈 THÊM ROUTE TRANG QUẢN LÝ HOMESTAY
+
+import HomeOwner from "./pages/HomeOwner";            // /owner/homestays
 import HomeCustomer from "./pages/HomeCustomer";
 import NotFound from "./pages/NotFound";
 
-// NEW: trang chủ Owner & trang quản lý booking
-import OwnerDashboard from "./pages/OwnerDashboard"; // /owner
-import OwnerBookings from "./pages/OwnerBookings";   // /owner/bookings
+import OwnerDashboard from "./pages/OwnerDashboard";  // /owner
+import OwnerBookings from "./pages/OwnerBookings";    // /owner/bookings
 
-// Trang chi tiết Homestay (public)
 import HomestayDetail from "./pages/HomestayDetail";
 
 export default function App() {
@@ -26,7 +27,7 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
 
-      {/* Chi tiết homestay: CHO PHÉP TRUY CẬP PUBLIC */}
+      {/* Chi tiết homestay: public */}
       <Route path="/homestays/:id" element={<HomestayDetail />} />
 
       {/* ===== Private (cần đăng nhập) ===== */}
@@ -34,15 +35,15 @@ export default function App() {
         {/* Admin */}
         <Route element={<RoleRoute allow={["admin"]} />}>
           <Route path="/admin" element={<HomeAdmin />} />
+          <Route path="/admin/users" element={<AdminUsers />} />
+          {/* ✅ THÊM đường dẫn quản lý homestay cho admin */}
+          <Route path="/admin/homestays" element={<AdminHomestays />} />
         </Route>
 
         {/* Owner */}
         <Route element={<RoleRoute allow={["owner"]} />}>
-          {/* Trang chủ Owner (dashboard) */}
           <Route path="/owner" element={<OwnerDashboard />} />
-          {/* Quản lý Homestay */}
           <Route path="/owner/homestays" element={<HomeOwner />} />
-          {/* Quản lý Đơn đặt phòng */}
           <Route path="/owner/bookings" element={<OwnerBookings />} />
         </Route>
 

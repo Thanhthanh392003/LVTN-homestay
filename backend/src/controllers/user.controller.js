@@ -1,6 +1,6 @@
 // backend/src/controllers/user.controller.js
-const db = require("../database/knex");                 // dùng knex trực tiếp
-const usersService = require("../services/user.service"); // giữ lại cho các API khác
+const db = require("../database/knex");
+const usersService = require("../services/user.service");
 const ApiError = require("../api-error");
 const JSend = require("../jsend");
 
@@ -14,15 +14,13 @@ function getUserId(req) {
     );
 }
 
-/** GET /api/users/me  -> trả thông tin user hiện tại */
+/** GET /api/users/me */
 async function getMe(req, res) {
     try {
         const uid = getUserId(req);
         if (!uid) return res.status(401).json(JSend.fail("Unauthorized"));
-
         const me = await db("USER").where({ U_ID: uid }).first();
         if (!me) return res.status(404).json(JSend.fail("User not found"));
-
         return res.status(200).json(JSend.success({ user: me }));
     } catch (error) {
         const status = error instanceof ApiError ? error.statusCode : 500;
@@ -30,7 +28,7 @@ async function getMe(req, res) {
     }
 }
 
-/** PUT /api/users/me/profile  -> cập nhật mềm dẻo, KHÔNG trả 400 nếu không có thay đổi */
+/** PUT /api/users/me/profile */
 async function updateProfile(req, res) {
     try {
         const uid = getUserId(req);
@@ -38,17 +36,11 @@ async function updateProfile(req, res) {
 
         const b = req.body || {};
         const pick = (...args) => args.find((v) => v !== undefined);
-        const trim = (v) =>
-            v === undefined || v === null ? undefined : String(v).trim();
-
+        const trim = (v) => (v === undefined || v === null ? undefined : String(v).trim());
         const updates = {};
 
         const fullName = trim(pick(b.U_Fullname, b.fullname, b.full_name));
         if (fullName !== undefined) updates.U_Fullname = fullName;
-
-        // Email thường không cho đổi; nếu muốn cho phép thì mở comment:
-        // const email = trim(pick(b.U_Email, b.email));
-        // if (email !== undefined) updates.U_Email = email;
 
         const phone = trim(pick(b.U_Phone, b.phone));
         if (phone !== undefined) updates.U_Phone = phone;
@@ -61,7 +53,7 @@ async function updateProfile(req, res) {
 
         let birthday = pick(b.U_Birthday, b.birthday);
         if (birthday !== undefined && birthday !== null && birthday !== "") {
-            const d = new Date(birthday); // chấp nhận YYYY-MM-DD hoặc ISO
+            const d = new Date(birthday);
             if (!isNaN(d.getTime())) {
                 const yyyy = d.getFullYear();
                 const mm = String(d.getMonth() + 1).padStart(2, "0");
@@ -69,10 +61,9 @@ async function updateProfile(req, res) {
                 updates.U_Birthday = `${yyyy}-${mm}-${dd}`;
             }
         } else if (birthday === "") {
-            updates.U_Birthday = null; // clear ngày sinh
+            updates.U_Birthday = null;
         }
 
-        // Không có trường nào? Trả về user hiện tại, tránh 400
         if (Object.keys(updates).length === 0) {
             const me = await db("USER").where({ U_ID: uid }).first();
             return res.status(200).json(JSend.success({ user: me }));
@@ -87,8 +78,6 @@ async function updateProfile(req, res) {
             .json(JSend.fail(err?.sqlMessage || err?.message || "Update profile failed"));
     }
 }
-
-/* ======= Các API khác vẫn dùng service như bạn đang có (giữ nguyên) ======= */
 
 // POST /api/users/register (public)
 async function register(req, res, next) {
@@ -129,13 +118,48 @@ async function changePassword(req, res, next) {
     }
 }
 
-// GET /api/users  (admin)
-async function listUsers(req, res, next) {
+/** GET /api/users  (ADMIN) ?role=customer|owner&q=keyword */
+async function listUsers(req, res) {
     try {
-        const result = await usersService.listUsers(req.query || {});
-        return res.status(200).json(JSend.success(result));
+        const { role, q } = req.query || {};
+
+        const qb = db("USER").select(
+            "U_ID as id",
+            "U_Fullname as fullname",
+            "U_Email as email",
+            "ROLE_ID as role_id",
+            "U_Status as status"
+        );
+
+        // Lọc vai trò: 1=admin, 2=owner, 3=customer (giả định)
+        if (role === "owner") {
+            qb.where("ROLE_ID", 2);
+        } else if (role === "customer") {
+            qb.whereNot("ROLE_ID", 1).andWhere("ROLE_ID", "!=", 2);
+            // nếu DB bạn dùng 3 cho customer thì dòng trên tương đương where ROLE_ID = 3
+        }
+
+        if (q) {
+            qb.andWhere((w) =>
+                w.whereILike("U_Fullname", `%${q}%`).orWhereILike("U_Email", `%${q}%`)
+            );
+        }
+
+        qb.orderBy("U_ID", "desc");
+
+        const rows = await qb;
+        // map role text
+        const data = rows.map((r) => ({
+            id: r.id,
+            fullname: r.fullname,
+            email: r.email,
+            role: r.role_id === 2 ? "owner" : r.role_id === 1 ? "admin" : "customer",
+            status: r.status || "active",
+        }));
+
+        return res.status(200).json(JSend.success(data));
     } catch (err) {
-        next(err);
+        return res.status(500).json(JSend.fail(err?.sqlMessage || err?.message || "List users failed"));
     }
 }
 
@@ -174,14 +198,22 @@ async function updateUser(req, res, next) {
 }
 
 // PATCH /api/users/:id/status
-async function updateUserStatus(req, res, next) {
+async function updateUserStatus(req, res) {
     try {
         const { id } = req.params;
         const { status } = req.body || {};
-        const result = await usersService.updateUserStatus(req, id, status);
-        return res.status(200).json(JSend.success(result));
+        if (!status) return res.status(400).json(JSend.fail("Missing status"));
+
+        // nếu service đã có thì dùng, không thì fallback knex
+        try {
+            const result = await usersService.updateUserStatus(req, id, status);
+            return res.status(200).json(JSend.success(result));
+        } catch {
+            await db("USER").where({ U_ID: id }).update({ U_Status: status });
+            return res.status(200).json(JSend.success({ id, status }));
+        }
     } catch (err) {
-        next(err);
+        return res.status(500).json(JSend.fail(err?.sqlMessage || err?.message || "Update status failed"));
     }
 }
 

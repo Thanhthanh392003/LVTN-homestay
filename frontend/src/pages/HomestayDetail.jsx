@@ -2,11 +2,16 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
     Layout, Row, Col, Card, Typography, Space, Tag, Button, message,
-    Image, Skeleton, Descriptions, Divider, InputNumber, DatePicker, Affix
+    Image, Skeleton, Descriptions, Divider, InputNumber, DatePicker, Affix, Tooltip, Badge
 } from "antd";
-import { ArrowLeftOutlined, EnvironmentOutlined, CalendarOutlined, DollarOutlined, ShareAltOutlined, HeartOutlined, HeartFilled } from "@ant-design/icons";
+import {
+    ArrowLeftOutlined, EnvironmentOutlined, CalendarOutlined, DollarOutlined,
+    ShareAltOutlined, HeartOutlined, HeartFilled
+} from "@ant-design/icons";
 import dayjs from "dayjs";
 import { homestaysApi } from "../services/homestays";
+import { amenityApi } from "../services/amenities";
+import { ruleApi } from "../services/rules";
 
 const { Header, Content } = Layout;
 const { Title, Text, Paragraph } = Typography;
@@ -16,7 +21,7 @@ export default function HomestayDetail() {
     const { id } = useParams();
     const navigate = useNavigate();
 
-    // base ảnh giống HomeCustomer
+    // base ảnh giống HomeCustomer (GIỮ NGUYÊN)
     const rawBase =
         import.meta.env.VITE_ASSET_BASE ||
         import.meta.env.VITE_API_BASE ||
@@ -29,7 +34,11 @@ export default function HomestayDetail() {
     const [images, setImages] = useState([]);
     const [fav, setFav] = useState(false);
 
-    // Booking state
+    // Amenities & Rules (động)
+    const [amenities, setAmenities] = useState([]);
+    const [rules, setRules] = useState([]);
+
+    // Booking state (GIỮ NGUYÊN)
     const [guests, setGuests] = useState(2);
     const [dateRange, setDateRange] = useState([null, null]);
 
@@ -63,6 +72,14 @@ export default function HomestayDetail() {
                     }
                 });
                 setImages(list);
+
+                // lấy tiện nghi/nội quy
+                const [am, rl] = await Promise.all([
+                    amenityApi.getForHomestay(id).catch(() => []),
+                    ruleApi.getForHomestay(id).catch(() => []),
+                ]);
+                setAmenities(am || []);
+                setRules(rl || []);
             } catch (e) {
                 console.error(e);
                 message.error("Không tải được chi tiết homestay");
@@ -89,51 +106,93 @@ export default function HomestayDetail() {
         message.success(`Đã tạo yêu cầu đặt ${nights} đêm, tổng ${total.toLocaleString("vi-VN")}₫ (mock).`);
     };
 
+    // ======= CHỈ STYLE/UI =======
+    const pageBg = {
+        minHeight: "100vh",
+        background:
+            "radial-gradient(900px 200px at 10% -5%, rgba(16,185,129,.10), transparent 60%), radial-gradient(900px 220px at 85% -8%, rgba(59,130,246,.12), transparent 60%), #f6faf7",
+    };
+    const container = { maxWidth: 1200, margin: "0 auto" };
+    const radius = 18;
+
     return (
-        <Layout style={{ minHeight: "100vh", background: "#f6faf7" }}>
-            <Header style={{ background: "#fff", borderBottom: "1px solid #e5e7eb" }}>
+        <Layout style={pageBg}>
+            {/* Header mảnh + nút quay lại */}
+            <Header
+                style={{
+                    background: "rgba(255,255,255,.85)",
+                    backdropFilter: "blur(6px)",
+                    borderBottom: "1px solid #e5e7eb"
+                }}
+            >
                 <Space>
-                    <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)}>Quay lại</Button>
+                    <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)}>
+                        Quay lại
+                    </Button>
                     <Title level={4} style={{ margin: 0 }}>Chi tiết homestay</Title>
                 </Space>
             </Header>
 
             <Content style={{ padding: 16 }}>
-                <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+                <div style={container}>
                     {loading || !h ? (
-                        <Card><Skeleton active avatar paragraph={{ rows: 8 }} /></Card>
+                        <Card style={{ borderRadius: radius }}><Skeleton active avatar paragraph={{ rows: 8 }} /></Card>
                     ) : (
                         <>
-                            {/* Tên + địa chỉ + action */}
-                            <Row justify="space-between" align="middle" style={{ marginBottom: 12 }}>
-                                <Col>
-                                    <Space direction="vertical" size={2}>
-                                        <Title level={3} style={{ margin: 0 }}>{h.H_Name}</Title>
-                                        <Text type="secondary">
-                                            <EnvironmentOutlined /> {h.H_City} • {h.H_Address}
-                                        </Text>
-                                    </Space>
-                                </Col>
-                                <Col>
-                                    <Space>
-                                        <Button onClick={share} icon={<ShareAltOutlined />}>Chia sẻ</Button>
-                                        <Button type={fav ? "primary" : "default"} onClick={toggleFav}
-                                            icon={fav ? <HeartFilled /> : <HeartOutlined />}>
-                                            {fav ? "Đã thích" : "Yêu thích"}
-                                        </Button>
-                                    </Space>
-                                </Col>
-                            </Row>
+                            {/* HERO: Tên + địa chỉ + action + badge trạng thái */}
+                            <Card
+                                style={{
+                                    borderRadius: radius,
+                                    marginBottom: 12,
+                                    background: "linear-gradient(135deg,#ffffff,#f8fffb)",
+                                    boxShadow: "0 18px 38px rgba(15,23,42,.08)"
+                                }}
+                                bodyStyle={{ padding: 16 }}
+                            >
+                                <Row justify="space-between" align="middle" gutter={[16, 12]}>
+                                    <Col flex="auto">
+                                        <Space direction="vertical" size={2}>
+                                            <Space align="center" wrap>
+                                                <Title level={3} style={{ margin: 0 }}>{h.H_Name}</Title>
+                                                <Badge
+                                                    color={(h.Status || "available").toLowerCase() === "active" ? "green" : "gold"}
+                                                    text={<Text type="secondary" style={{ fontWeight: 500 }}>{h.Status || "available"}</Text>}
+                                                />
+                                            </Space>
+                                            <Text type="secondary">
+                                                <EnvironmentOutlined /> {h.H_City} • {h.H_Address}
+                                            </Text>
+                                        </Space>
+                                    </Col>
+                                    <Col>
+                                        <Space>
+                                            <Tooltip title="Chia sẻ liên kết">
+                                                <Button onClick={share} icon={<ShareAltOutlined />} />
+                                            </Tooltip>
+                                            <Button
+                                                type={fav ? "primary" : "default"}
+                                                onClick={toggleFav}
+                                                icon={fav ? <HeartFilled /> : <HeartOutlined />}
+                                            >
+                                                {fav ? "Đã thích" : "Yêu thích"}
+                                            </Button>
+                                        </Space>
+                                    </Col>
+                                </Row>
+                            </Card>
 
-                            {/* Gallery ảnh */}
-                            <Card style={{ borderRadius: 16, overflow: "hidden", marginBottom: 16 }}>
+                            {/* GALLERY */}
+                            <Card
+                                style={{ borderRadius: radius, overflow: "hidden", marginBottom: 16, boxShadow: "0 14px 34px rgba(15,23,42,.08)" }}
+                                bodyStyle={{ padding: 12 }}
+                            >
                                 <Image.PreviewGroup>
                                     <Row gutter={[8, 8]}>
                                         <Col xs={24} md={14}>
                                             <Image
                                                 src={toSrc(images[0]?.url || h.Cover)}
                                                 alt="main"
-                                                style={{ height: 360, objectFit: "cover", width: "100%" }}
+                                                style={{ height: 420, objectFit: "cover", width: "100%", borderRadius: 14 }}
                                             />
                                         </Col>
                                         <Col xs={24} md={10}>
@@ -143,7 +202,7 @@ export default function HomestayDetail() {
                                                         <Image
                                                             src={toSrc(img.url)}
                                                             alt={"img" + idx}
-                                                            style={{ height: 176, objectFit: "cover", width: "100%" }}
+                                                            style={{ height: idx < 2 ? 204 : 196, objectFit: "cover", width: "100%", borderRadius: 12 }}
                                                         />
                                                     </Col>
                                                 ))}
@@ -156,39 +215,45 @@ export default function HomestayDetail() {
                             <Row gutter={[16, 16]}>
                                 {/* Thông tin chi tiết */}
                                 <Col xs={24} lg={16}>
-                                    <Card style={{ borderRadius: 16 }}>
-                                        <Space direction="vertical" size={12} style={{ width: "100%" }}>
-                                            <Tag color="green" style={{ borderRadius: 12 }}>{h.Status || "available"}</Tag>
-                                            <Descriptions
-                                                title="Thông tin"
-                                                bordered
-                                                size="middle"
-                                                column={1}
-                                                items={[
-                                                    { key: "addr", label: "Địa chỉ", children: `${h.H_Address}, ${h.H_City}` },
-                                                    { key: "price", label: "Giá/đêm", children: <Text strong>{(Number(h.Price_per_day) || 0).toLocaleString("vi-VN")} ₫</Text> },
-                                                ]}
-                                            />
-                                            <Divider />
+                                    <Card style={{ borderRadius: radius, boxShadow: "0 12px 30px rgba(15,23,42,.06)" }} bodyStyle={{ padding: 18 }}>
+                                        <Space direction="vertical" size={14} style={{ width: "100%" }}>
+                                            {/* Chips thông tin nhanh */}
+                                            <Space wrap>
+                                                <Tag color="blue" style={{ borderRadius: 999 }}>
+                                                    <DollarOutlined />{" "}
+                                                    {(Number(h.Price_per_day) || 0).toLocaleString("vi-VN")} ₫ / đêm
+                                                </Tag>
+                                                {h.Max_guests ? <Tag color="purple" style={{ borderRadius: 999 }}>👥 Tối đa {h.Max_guests} khách</Tag> : null}
+                                                {h.H_City ? <Tag color="geekblue" style={{ borderRadius: 999 }}>🏙️ {h.H_City}</Tag> : null}
+                                            </Space>
+
+                                            <Descriptions title="Thông tin" bordered size="middle" column={1} items={[
+                                                { key: "addr", label: "Địa chỉ", children: `${h.H_Address}, ${h.H_City}` },
+                                                { key: "price", label: "Giá/đêm", children: <Text strong>{(Number(h.Price_per_day) || 0).toLocaleString("vi-VN")} ₫</Text> },
+                                            ]} />
+
+                                            <Divider style={{ margin: "10px 0" }} />
+
                                             <Title level={5} style={{ margin: 0 }}>Mô tả</Title>
-                                            <Paragraph>
+                                            <Paragraph style={{ marginBottom: 0 }}>
                                                 {h.H_Description || "Chủ nhà chưa cập nhật mô tả chi tiết."}
                                             </Paragraph>
 
-                                            {/* Gợi ý thêm: Tiện nghi / Nội quy / Chính sách hủy (hiện placeholder) */}
-                                            <Divider />
-                                            <Title level={5} style={{ margin: 0 }}>Tiện nghi</Title>
-                                            <Space wrap>
-                                                <Tag>Wifi</Tag><Tag>Máy lạnh</Tag><Tag>TV</Tag><Tag>Máy nước nóng</Tag><Tag>Chỗ đậu xe</Tag>
-                                            </Space>
+                                            <Divider style={{ margin: "14px 0" }} />
 
-                                            <Divider />
+                                            <Title level={5} style={{ margin: 0 }}>Tiện nghi</Title>
+                                            {amenities?.length ? (
+                                                <Space wrap>{amenities.map((a) => <Tag key={a.Code}>{a.Name}</Tag>)}</Space>
+                                            ) : <Text type="secondary">Chủ nhà chưa cập nhật.</Text>}
+
+                                            <Divider style={{ margin: "14px 0" }} />
+
                                             <Title level={5} style={{ margin: 0 }}>Nội quy</Title>
-                                            <ul style={{ marginBottom: 0 }}>
-                                                <li>Không hút thuốc trong phòng</li>
-                                                <li>Giữ yên lặng sau 22:00</li>
-                                                <li>Không mang thú cưng (trừ khi chủ nhà đồng ý)</li>
-                                            </ul>
+                                            {rules?.length ? (
+                                                <ul style={{ marginBottom: 0 }}>
+                                                    {rules.map((r) => <li key={r.RuleItem_ID || r.name}>{r.name}</li>)}
+                                                </ul>
+                                            ) : <Text type="secondary">Chủ nhà chưa cập nhật.</Text>}
                                         </Space>
                                     </Card>
                                 </Col>
@@ -196,11 +261,14 @@ export default function HomestayDetail() {
                                 {/* Khung đặt phòng cố định bên phải */}
                                 <Col xs={24} lg={8}>
                                     <Affix offsetTop={80}>
-                                        <Card style={{ borderRadius: 16 }}>
+                                        <Card
+                                            style={{ borderRadius: radius, boxShadow: "0 14px 34px rgba(15,23,42,.10)", background: "linear-gradient(180deg,#ffffff, #f7fffb)" }}
+                                            bodyStyle={{ padding: 18 }}
+                                        >
                                             <Space direction="vertical" size={12} style={{ width: "100%" }}>
-                                                <Space align="center">
+                                                <Space align="center" wrap>
                                                     <DollarOutlined />
-                                                    <Text strong style={{ fontSize: 18 }}>
+                                                    <Text strong style={{ fontSize: 20 }}>
                                                         {(Number(h.Price_per_day) || 0).toLocaleString("vi-VN")} ₫
                                                     </Text>
                                                     <Text type="secondary">/ đêm</Text>
@@ -217,7 +285,7 @@ export default function HomestayDetail() {
                                                     />
                                                 </Space>
 
-                                                <Space align="center">
+                                                <Space align="center" style={{ justifyContent: "space-between" }}>
                                                     <Text type="secondary">Số khách:</Text>
                                                     <InputNumber min={1} max={10} value={guests} onChange={setGuests} />
                                                 </Space>
@@ -236,9 +304,6 @@ export default function HomestayDetail() {
                                                 <Button type="primary" block onClick={onBook} disabled={!nights}>
                                                     Đặt homestay
                                                 </Button>
-                                                <Text type="secondary" style={{ fontSize: 12 }}>
-                                                    * Đây là bản demo đặt phòng. Bạn có thể nối API /bookings để tạo đơn thật.
-                                                </Text>
                                             </Space>
                                         </Card>
                                     </Affix>

@@ -1,3 +1,4 @@
+// src/routes/homestay.route.js
 const router = require("express").Router();
 const ctrl = require("../controllers/homestay.controller");
 const requireLogin = require("../middlewares/requireLogin");
@@ -33,22 +34,32 @@ const fileFilter = (req, file, cb) => {
 
 const upload = multer({ storage, fileFilter, limits: { fileSize: 5 * 1024 * 1024 } });
 
-// Owner
+// ========= Owner =========
 router.get("/owner/mine", requireLogin, ctrl.listMine);
 router.post("/", requireLogin, ctrl.create);
+router.put("/:id", requireLogin, ctrl.update);
 
-// ✅ PUBLIC: list cho Customer
+// ========= PUBLIC =========
 router.get("/", ctrl.listPublic);
-router.get("/:id", ctrl.getOne);                     // ✅ chi tiết
-router.get("/:id/images-public", ctrl.listImagesPublic); // ✅ ảnh public
+router.get("/search", ctrl.searchAvailable);
+router.get("/:id", ctrl.getOne);
+router.get("/:id/images-public", ctrl.listImagesPublic);
 
-// Images
+// ========= Images (owner) =========
 router.get("/:id/images", requireLogin, ctrl.listImages);
 router.post("/:id/images", requireLogin, upload.array("images", 10), ctrl.uploadImages);
 router.patch("/:id/images/:imageId/main", requireLogin, ctrl.setMainImage);
 router.delete("/:id/images/:imageId", requireLogin, ctrl.deleteImage);
 
-// Delete homestay
+// ========= Delete homestay (owner) =========
 router.delete("/:id", requireLogin, ctrl.remove);
+
+// ========= ADMIN =========
+// Liệt kê homestay cho admin (lọc theo status & tìm kiếm)
+router.get("/admin/homestays", requireLogin, ctrl.adminList);
+// Phê duyệt / từ chối / xoá
+router.post("/admin/homestays/:id/approve", requireLogin, ctrl.adminApprove);
+router.post("/admin/homestays/:id/reject", requireLogin, ctrl.adminReject);
+router.delete("/admin/homestays/:id", requireLogin, ctrl.adminRemove);
 
 module.exports = router;

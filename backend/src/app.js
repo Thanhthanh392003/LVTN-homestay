@@ -39,5 +39,6 @@ app.use("/uploads", express.static(path.join(__dirname, "public/uploads")));
 app.use("/api/auth", require("./routes/auth.route"));
 app.use("/api/users", require("./routes/user.route"));
 app.use("/api/homestays", require("./routes/homestay.route"));
-
+app.use("/api/homestays", require("./routes/homestay.route"));
+app.use("/api/amenities", require("./routes/amenity.route"));
 module.exports = app;

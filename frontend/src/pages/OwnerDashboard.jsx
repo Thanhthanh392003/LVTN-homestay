@@ -2,11 +2,13 @@
 import React from "react";
 import {
     Layout, Row, Col, Card, Button, Statistic, Space, Typography,
-    Drawer, Form, Input, DatePicker, Select, message
+    Drawer, Form, Input, DatePicker, Select, message, Divider, Tag
 } from "antd";
 import {
     HomeOutlined, BookOutlined, DollarOutlined,
-    StarOutlined, GiftOutlined, BarChartOutlined
+    StarOutlined, GiftOutlined, BarChartOutlined,
+    UserOutlined, MailOutlined, PhoneOutlined, EnvironmentOutlined,
+    CalendarOutlined
 } from "@ant-design/icons";
 import { useNavigate, Link } from "react-router-dom";
 import dayjs from "dayjs";
@@ -65,7 +67,7 @@ export default function OwnerDashboard() {
         return () => { alive = false; };
     }, [user]);
 
-    // ====== Drawer Sửa hồ sơ (giữ nguyên) ======
+    // ====== Drawer Sửa hồ sơ (giữ nguyên chức năng) ======
     const [pOpen, setPOpen] = React.useState(false);
     const [pSaving, setPSaving] = React.useState(false);
     const [pForm] = Form.useForm();
@@ -265,8 +267,7 @@ export default function OwnerDashboard() {
                                     <span>Quản lý Homestay</span>
                                 </Space>
                             }
-                            style={actionCard("rgba(16,163,74,.10)")}
-                        >
+                            style={actionCard("rgba(16,163,74,.10)")}>
                             <Space direction="vertical" size={8} style={{ width: "100%" }}>
                                 <Paragraph style={{ marginTop: 4 }}>
                                     Thêm/sửa/xoá homestay, quản lý ảnh, giá, trạng thái…
@@ -294,17 +295,12 @@ export default function OwnerDashboard() {
                                     <span>Quản lý Đơn đặt phòng</span>
                                 </Space>
                             }
-                            style={actionCard("rgba(37,99,235,.10)")}
-                        >
+                            style={actionCard("rgba(37,99,235,.10)")}>
                             <Space direction="vertical" size={8} style={{ width: "100%" }}>
                                 <Paragraph style={{ marginTop: 4 }}>
                                     Duyệt/huỷ booking, xem chi tiết, lịch nhận trả phòng…
                                 </Paragraph>
-                                <Button
-                                    block
-                                    icon={<BookOutlined />}
-                                    style={{ height: 40, fontWeight: 600 }}
-                                >
+                                <Button block icon={<BookOutlined />} style={{ height: 40, fontWeight: 600 }}>
                                     <Link to="/owner/bookings">Xem đơn đặt phòng</Link>
                                 </Button>
                             </Space>
@@ -321,8 +317,7 @@ export default function OwnerDashboard() {
                                     <span>Khuyến mãi & Doanh thu</span>
                                 </Space>
                             }
-                            style={actionCard("rgba(245,158,11,.12)")}
-                        >
+                            style={actionCard("rgba(245,158,11,.12)")}>
                             <Space direction="vertical" size={8} style={{ width: "100%" }}>
                                 <Paragraph style={{ marginTop: 4 }}>
                                     Tạo mã giảm giá, xem thống kê doanh thu, biểu đồ theo tháng.
@@ -352,8 +347,7 @@ export default function OwnerDashboard() {
                                     <span>Phản hồi & Đánh giá</span>
                                 </Space>
                             }
-                            style={actionCard("rgba(139,92,246,.12)")}
-                        >
+                            style={actionCard("rgba(139,92,246,.12)")}>
                             <Paragraph style={{ marginTop: 4 }}>
                                 Xem phản hồi khách, trả lời đánh giá.
                             </Paragraph>
@@ -372,8 +366,7 @@ export default function OwnerDashboard() {
                                     <span>Tiện ích & Dịch vụ</span>
                                 </Space>
                             }
-                            style={actionCard("rgba(6,182,212,.12)")}
-                        >
+                            style={actionCard("rgba(6,182,212,.12)")}>
                             <Paragraph style={{ marginTop: 4 }}>
                                 Thiết lập tiện ích (wifi, bữa sáng, đưa đón…).
                             </Paragraph>
@@ -392,8 +385,7 @@ export default function OwnerDashboard() {
                                     <span>Khiếu nại</span>
                                 </Space>
                             }
-                            style={actionCard("rgba(239,68,68,.12)")}
-                        >
+                            style={actionCard("rgba(239,68,68,.12)")}>
                             <Paragraph style={{ marginTop: 4 }}>
                                 Tiếp nhận & xử lý khiếu nại của khách.
                             </Paragraph>
@@ -405,48 +397,149 @@ export default function OwnerDashboard() {
                 </Row>
             </Layout.Content>
 
-            {/* Drawer hồ sơ (giữ nguyên) */}
+            {/* Drawer hồ sơ — CHỈ CHỈNH UI */}
             <Drawer
-                title="Sửa thông tin cá nhân"
                 open={pOpen}
                 onClose={() => setPOpen(false)}
-                width={520}
-                extra={
-                    <Space>
-                        <Button onClick={() => setPOpen(false)}>Huỷ</Button>
-                        <Button type="primary" loading={pSaving} onClick={() => pForm.submit()}>
-                            Lưu
-                        </Button>
-                    </Space>
-                }
+                width={640}
+                bodyStyle={{ padding: 0 }}
+                title={null}
+                extra={null}
             >
-                <Form layout="vertical" form={pForm} onFinish={onProfileSave}>
-                    <Form.Item name="U_Fullname" label="Họ tên" rules={[{ required: true, message: "Nhập họ tên" }]}>
-                        <Input placeholder="Nguyễn Văn A" />
-                    </Form.Item>
-                    <Form.Item name="U_Email" label="Email">
-                        <Input disabled />
-                    </Form.Item>
-                    <Form.Item name="U_Phone" label="SĐT">
-                        <Input placeholder="0901234567" />
-                    </Form.Item>
-                    <Form.Item name="U_Address" label="Địa chỉ">
-                        <Input placeholder="Số nhà, đường, phường/xã..." />
-                    </Form.Item>
-                    <Form.Item name="U_Gender" label="Giới tính">
-                        <Select
-                            allowClear
-                            options={[
-                                { value: "male", label: "Nam" },
-                                { value: "female", label: "Nữ" },
-                                { value: "other", label: "Khác" },
-                            ]}
-                        />
-                    </Form.Item>
-                    <Form.Item name="U_Birthday" label="Ngày sinh">
-                        <DatePicker style={{ width: "100%" }} format="YYYY-MM-DD" />
-                    </Form.Item>
-                </Form>
+                {/* Header đẹp hơn */}
+                <div
+                    style={{
+                        padding: "18px 24px",
+                        background: "linear-gradient(135deg,#e0f7ff,#f0fff4)",
+                        borderBottom: "1px solid #f0f0f0",
+                    }}
+                >
+                    <Space align="center" size={14} style={{ width: "100%", justifyContent: "space-between" }}>
+                        <Space align="center" size={12}>
+                            <div
+                                style={{
+                                    width: 44,
+                                    height: 44,
+                                    borderRadius: 12,
+                                    background: "#1677ff",
+                                    color: "#fff",
+                                    display: "grid",
+                                    placeItems: "center",
+                                    fontWeight: 700,
+                                    boxShadow: "0 10px 22px rgba(22,119,255,.25)",
+                                }}
+                            >
+                                {(user?.U_Fullname || user?.username || "U").toString().charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                                <Title level={4} style={{ margin: 0 }}>Sửa thông tin cá nhân</Title>
+                                <Text type="secondary">Cập nhật hồ sơ để trải nghiệm tốt hơn</Text>
+                            </div>
+                        </Space>
+
+                        <Space>
+                            <Tag color="blue" style={{ borderRadius: 999 }}>
+                                Owner
+                            </Tag>
+                            <Button onClick={() => setPOpen(false)}>Huỷ</Button>
+                            <Button type="primary" loading={pSaving} onClick={() => pForm.submit()}>
+                                Lưu
+                            </Button>
+                        </Space>
+                    </Space>
+                </div>
+
+                {/* Nội dung form */}
+                <div style={{ padding: 20 }}>
+                    <Form layout="vertical" form={pForm} onFinish={onProfileSave}>
+                        {/* Hàng 1: Họ tên + Email */}
+                        <Row gutter={16}>
+                            <Col xs={24} md={12}>
+                                <Form.Item
+                                    name="U_Fullname"
+                                    label="Họ tên"
+                                    rules={[{ required: true, message: "Nhập họ tên" }]}
+                                >
+                                    <Input
+                                        size="large"
+                                        placeholder="Nguyễn Văn A"
+                                        prefix={<UserOutlined className="text-gray-400" />}
+                                    />
+                                </Form.Item>
+                            </Col>
+                            <Col xs={24} md={12}>
+                                <Form.Item name="U_Email" label="Email">
+                                    <Input
+                                        size="large"
+                                        disabled
+                                        placeholder="email@domain.com"
+                                        prefix={<MailOutlined className="text-gray-400" />}
+                                    />
+                                </Form.Item>
+                            </Col>
+                        </Row>
+
+                        {/* Hàng 2: SĐT + Địa chỉ */}
+                        <Row gutter={16}>
+                            <Col xs={24} md={12}>
+                                <Form.Item name="U_Phone" label="Số điện thoại">
+                                    <Input
+                                        size="large"
+                                        placeholder="0901234567"
+                                        prefix={<PhoneOutlined className="text-gray-400" />}
+                                    />
+                                </Form.Item>
+                            </Col>
+                            <Col xs={24} md={12}>
+                                <Form.Item name="U_Address" label="Địa chỉ">
+                                    <Input
+                                        size="large"
+                                        placeholder="Số nhà, đường, phường/xã..."
+                                        prefix={<EnvironmentOutlined className="text-gray-400" />}
+                                    />
+                                </Form.Item>
+                            </Col>
+                        </Row>
+
+                        {/* Hàng 3: Giới tính + Ngày sinh */}
+                        <Row gutter={16}>
+                            <Col xs={24} md={12}>
+                                <Form.Item name="U_Gender" label="Giới tính">
+                                    <Select
+                                        size="large"
+                                        allowClear
+                                        options={[
+                                            { value: "male", label: "Nam" },
+                                            { value: "female", label: "Nữ" },
+                                            { value: "other", label: "Khác" },
+                                        ]}
+                                        placeholder="Chọn giới tính"
+                                    />
+                                </Form.Item>
+                            </Col>
+                            <Col xs={24} md={12}>
+                                <Form.Item name="U_Birthday" label="Ngày sinh">
+                                    <DatePicker
+                                        size="large"
+                                        style={{ width: "100%" }}
+                                        format="YYYY-MM-DD"
+                                        placeholder="YYYY-MM-DD"
+                                        suffixIcon={<CalendarOutlined />}
+                                    />
+                                </Form.Item>
+                            </Col>
+                        </Row>
+
+                        <Divider style={{ margin: "4px 0 10px" }} />
+
+                        <Space style={{ width: "100%", justifyContent: "flex-end" }}>
+                            <Button onClick={() => setPOpen(false)}>Đóng</Button>
+                            <Button type="primary" loading={pSaving} onClick={() => pForm.submit()}>
+                                Lưu thay đổi
+                            </Button>
+                        </Space>
+                    </Form>
+                </div>
             </Drawer>
         </Layout>
     );
