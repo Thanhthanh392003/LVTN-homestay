@@ -1,0 +1,250 @@
+version: "3.1"
+
+intents:
+  - greet
+  - goodbye
+  - thanks
+  - ask_booking
+  - ask_booking_status
+  - ask_cancel
+  - ask_payment_methods
+  - ask_payment_steps
+  - ask_payment_cod_steps
+  - ask_payment_issue
+  - ask_promotion
+  - ask_promotion_list
+  - ask_support
+  - ask_check_booking
+  - ask_owner_manage_homestay
+  - ask_owner_update_price
+  - ask_owner_revenue
+  - ask_owner_reply_review
+  - ask_login_issue
+  - ask_reset_password
+  - ask_homestay_amenities
+  - search_homestay
+  - search_homestay_advanced
+  - search_homestay_by_amenity
+  - search_homestay_by_price
+  - search_homestay_by_rating
+  - search_homestay_holiday
+  - estimate_booking_price
+  - check_promo_code
+  - check_booking_by_contact
+  - owner_view_today_bookings
+  - owner_latest_reviews
+  - inform_booking_id
+  - nlu_fallback
+  - ask_booking_info
+  - ask_promo_homestays
+
+entities:
+  - booking_id
+  - location
+  - guests
+  - checkin
+  - checkout
+  - price_min
+  - price_max
+  - amenity
+  - hid
+  - promo_code
+  - phone
+  - email
+
+slots:
+  booking_id:
+    type: text
+    influence_conversation: true
+    mappings:
+      - type: from_entity
+        entity: booking_id
+
+  location:
+    type: text
+    influence_conversation: true
+    mappings:
+      - type: from_entity
+        entity: location
+
+  guests:
+    type: text
+    influence_conversation: false
+    mappings:
+      - type: from_entity
+        entity: guests
+
+  checkin:
+    type: text
+    influence_conversation: false
+    mappings:
+      - type: from_entity
+        entity: checkin
+
+  checkout:
+    type: text
+    influence_conversation: false
+    mappings:
+      - type: from_entity
+        entity: checkout
+
+  price_min:
+    type: text
+    influence_conversation: false
+    mappings:
+      - type: from_entity
+        entity: price_min
+
+  price_max:
+    type: text
+    influence_conversation: false
+    mappings:
+      - type: from_entity
+        entity: price_max
+
+  amenity:
+    type: text
+    influence_conversation: false
+    mappings:
+      - type: from_entity
+        entity: amenity
+
+  hid:
+    type: text
+    influence_conversation: false
+    mappings:
+      - type: from_entity
+        entity: hid
+
+  promo_code:
+    type: text
+    influence_conversation: true
+    mappings:
+      - type: from_entity
+        entity: promo_code
+
+  phone:
+    type: text
+    influence_conversation: false
+    mappings:
+      - type: from_entity
+        entity: phone
+
+  email:
+    type: text
+    influence_conversation: false
+    mappings:
+      - type: from_entity
+        entity: email
+
+responses:
+  utter_greet:
+    - text: "Xin chào 👋, mình là trợ lý GreenStay. Bạn cần hỗ trợ về đặt phòng, thanh toán hay huỷ phòng không?"
+
+  utter_goodbye:
+    - text: "Cảm ơn bạn đã sử dụng GreenStay. Chúc bạn một ngày tốt lành ✨"
+
+  utter_thanks:
+    - text: "Rất vui được hỗ trợ bạn 💚"
+
+  utter_ask_booking:
+    - text: |
+        Để đặt phòng trên GreenStay, bạn làm theo các bước:
+        1️⃣ Chọn homestay và ngày lưu trú  
+        2️⃣ Nhấn **Đặt ngay**  
+        3️⃣ Chọn hình thức thanh toán  
+        4️⃣ Xác nhận đơn đặt phòng
+
+  utter_ask_cancel:
+    - text: |
+        Để huỷ đơn:
+        • Vào **Đặt phòng của tôi / MyBookings**  
+        • Chọn đơn → Nhấn **Huỷ đơn** → Nhập lý do
+
+  utter_ask_payment_methods:
+    - text: |
+        GreenStay hỗ trợ:
+        • Thanh toán online qua **VNPAY**  
+        • Thanh toán khi nhận phòng (COD)
+
+  utter_ask_payment_issue:
+    - text: |
+        Nếu bạn thanh toán mà chưa cập nhật:
+        • Chờ vài phút và thử lại  
+        • Nếu vẫn lỗi → gửi khiếu nại nhé
+
+  utter_payment_steps:
+    - text: |
+        Hướng dẫn thanh toán cho đơn trên GreenStay:
+
+        🔹 Cách 1 – Thanh toán online qua VNPAY:
+        1️⃣ Ở bước thanh toán, chọn VNPAY
+        2️⃣ Chọn ngân hàng / ví thanh toán phù hợp  
+        3️⃣ Xác nhận giao dịch (nhập OTP nếu được yêu cầu)  
+        4️⃣ Đợi vài phút để hệ thống cập nhật trạng thái đơn sang Đã thanh toán / Chờ xác nhận
+
+        🔹 Cách 2 – Thanh toán khi nhận phòng (COD):
+        1️⃣ Ở bước thanh toán, chọn Thanh toán khi nhận phòng (COD) 
+        2️⃣ Đến homestay và thanh toán trực tiếp cho chủ nhà / lễ tân  
+        3️⃣ Sau khi thanh toán xong, hệ thống sẽ cập nhật trạng thái đơn tương ứng
+
+  utter_payment_cod_steps:
+    - text: |
+        Hướng dẫn thanh toán khi nhận phòng (COD):
+        • Chọn COD  
+        • Xác nhận đơn  
+        • Thanh toán tại homestay
+
+  utter_ask_support:
+    - text: |
+        Bạn có thể:
+        • Gửi khiếu nại trong mục MyBookings 
+        • Hoặc chat với mình ở đây 💚
+
+  utter_ask_check_booking:
+    - text: "Bạn gửi mã đơn giúp mình nhé."
+
+  utter_ask_owner_manage_homestay:
+    - text: "Chủ nhà thêm homestay mới trong mục Quản lý homestay."
+
+  utter_ask_owner_update_price:
+    - text: "Giá phòng chỉnh trong mục Chỉnh sửa homestay."
+
+  utter_ask_owner_revenue:
+    - text: "Doanh thu nằm trong mục Dashboard → Doanh thu."
+
+  utter_ask_owner_reply_review:
+    - text: "Chủ nhà trả lời đánh giá trong mục Reviews."
+
+  utter_ask_login_issue:
+    - text: "Bạn kiểm tra lại tài khoản và mật khẩu nhé."
+
+  utter_ask_reset_password:
+    - text: "Bạn chọn Quên mật khẩu để đặt lại mật khẩu."
+
+  utter_ask_homestay_amenities:
+    - text: "Tiện ích hiển thị trong trang chi tiết homestay."
+
+  utter_default:
+    - text: "Mình chưa hiểu câu hỏi của bạn, bạn nói lại giúp mình nha 😊"
+
+actions:
+  - action_check_booking_status
+  - action_search_homestay
+  - action_search_homestay_advanced
+  - action_search_homestay_by_amenity
+  - action_estimate_booking_price
+  - action_check_promo_code
+  - action_check_booking_by_contact
+  - action_search_homestay_by_price
+  - action_search_homestay_by_rating
+  - action_search_homestay_holiday
+  - action_owner_view_today_bookings
+  - action_owner_latest_reviews
+  - action_list_promotions
+  - action_get_booking_info
+  - action_list_promo_homestays
+
+session_config:
+  session_expiration_time: 60
+  carry_over_slots_to_new_session: true

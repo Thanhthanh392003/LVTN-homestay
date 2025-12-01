@@ -1,0 +1,447 @@
+version: "3.1"
+
+nlu:
+
+  # ===== GREET =====
+  - intent: greet
+    examples: |
+      - xin chào
+      - chào bạn
+      - chào greenstay
+      - hello
+      - hi
+      - alo alo
+      - ad ơi
+      - mình chào bạn
+      - cho mình hỏi chút
+      - bạn ơi
+      - chào buổi sáng
+      - chào buổi tối
+      - có ai hỗ trợ mình không
+      - mình cần tư vấn
+      - help
+
+  # ===== GOODBYE =====
+  - intent: goodbye
+    examples: |
+      - tạm biệt
+      - bye
+      - hẹn gặp lại
+      - cảm ơn mình out đây
+      - mình đi đây
+      - thôi mình thoát đây
+      - mình không cần nữa
+      - vậy thôi nha
+      - chào tạm biệt
+      - để lần khác mình hỏi tiếp
+
+  # ===== THANKS =====
+  - intent: thanks
+    examples: |
+      - cảm ơn
+      - cảm ơn bạn nhiều
+      - ok cảm ơn
+      - thanks
+      - tuyệt vời, cảm ơn nha
+      - được rồi, cảm ơn
+      - cảm ơn nhiều lắm
+      - thanks bot
+      - cảm ơn greenstay
+
+  # ===== BOOKING =====
+  - intent: ask_booking
+    examples: |
+      - làm sao để đặt phòng
+      - mình muốn đặt homestay
+      - đặt phòng trên web như thế nào
+      - hướng dẫn mình đặt phòng với
+      - mình muốn đặt phòng ngày mai
+      - quy trình đặt phòng trên greenstay
+      - đặt nhiều phòng cùng lúc được không
+      - mình muốn đặt 2 đêm ở cần thơ
+      - đặt phòng xong có được sửa ngày lại không
+      - có cách nào xem phòng còn trống trước khi đặt không
+      - đặt phòng cho 4 người thì làm sao
+      - mình muốn đặt phòng cuối tuần này
+      - có cần đăng ký tài khoản mới đặt phòng không
+      - không đăng nhập có đặt phòng được không
+      - làm sao để đặt homestay trên GreenStay
+      - hướng dẫn đặt homestay trên GreenStay
+      - cách đặt homestestay trên website GreenStay
+      - đặt homestay như thế nào vậy
+      - hướng dẫn mình đặt homestay
+      - quy trình đặt homestay trên GreenStay là gì
+      - mình muốn đặt nhà nghỉ trên GreenStay
+      - cách đặt chỗ ở trên GreenStay
+      - đặt phòng trên hệ thống GreenStay như thế nào
+      - làm sao đặt phòng trên trang GreenStay
+
+  - intent: ask_booking_status
+    examples: |
+      - kiểm tra đơn [12345](booking_id)
+      - tình trạng đơn [GS2024-10](booking_id) sao rồi
+      - mã đơn [1001](booking_id) đang ở trạng thái nào
+      - xem giúp trạng thái đơn của tôi
+      - đơn hàng của tôi còn không
+
+  - intent: ask_cancel
+    examples: |
+      - muốn huỷ phòng thì làm sao
+      - huỷ đơn đặt phòng như thế nào
+      - có huỷ được booking không
+      - mình muốn đổi lịch hoặc huỷ
+      - điều kiện huỷ phòng là gì
+      - huỷ sát giờ có bị mất tiền không
+      - muốn huỷ mà không thấy nút huỷ
+      - huỷ xong có hoàn tiền không
+      - mình lỡ đặt nhầm ngày, giờ phải làm sao
+      - có thể đổi sang ngày khác không
+      - mình muốn đổi sang homestay khác
+      - huỷ phòng có bị tính phí không
+      - thời hạn cuối cùng để được huỷ miễn phí là khi nào
+
+  # ===== PAYMENT =====
+  - intent: ask_payment_methods
+    examples: |
+      - web có những hình thức thanh toán nào
+      - có thanh toán qua vnpay không
+      - thanh toán khi đến nhận phòng được không
+      - thanh toán online trên greenstay như thế nào
+      - mình có thể chuyển khoản trực tiếp không
+      - thanh toán bằng ví điện tử được không
+      - thanh toán trước hay khi tới nhận phòng
+      - có hỗ trợ thanh toán qua ví momo không
+      - thanh toán bằng thẻ ngân hàng được không
+
+  - intent: ask_payment_steps
+    examples: |
+      - hướng dẫn chi tiết từng bước thanh toán
+      - chỉ mình từng bước thanh toán
+      - hướng dẫn từng bước thanh toán online
+      - chỉ mình cách thanh toán bằng thẻ ngân hàng
+      - hướng dẫn thanh toán qua vnpay
+      - hướng dẫn thanh toán chi tiết giúp mình
+
+  - intent: ask_payment_issue
+    examples: |
+      - mình thanh toán rồi mà chưa thấy cập nhật
+      - thanh toán xong mà hệ thống báo lỗi thì làm sao
+      - khi thanh toán vnpay bị đứng màn hình thì xử lý sao
+      - sao đơn mình vẫn báo chưa thanh toán
+      - thanh toán thất bại thì tiền có bị trừ không
+      - mình muốn xem lại hoá đơn thanh toán
+      - mình đã trả tiền mà đơn vẫn hiện chưa thanh toán
+      - thanh toán vnpay xong nhưng không quay lại web
+      - bị trừ tiền rồi nhưng không thấy đơn
+
+  - intent: ask_payment_cod_steps
+    examples: |
+      - hướng dẫn thanh toán khi nhận phòng
+      - chỉ mình cách thanh toán khi nhận phòng
+      - thanh toán khi nhận phòng làm sao
+      - mình muốn trả tiền khi tới nơi thì làm sao
+      - hướng dẫn chi tiết thanh toán khi nhận phòng
+      - thanh toán trực tiếp tại homestay như thế nào
+      - mình muốn trả tiền mặt khi nhận phòng
+
+  # ===== PROMOTION =====
+  - intent: ask_promotion
+    examples: |
+      - hiện tại có mã khuyến mãi gì không
+      - hiện tại có khuyến mãi gì không
+      - bây giờ có mã khuyến mãi nào không
+      - bên mình đang có mã khuyến mãi nào vậy
+      - hiện tại có mã giảm giá hay voucher gì không
+      - có mã giảm giá không
+      - có mã khuyến mãi không
+      - làm sao để áp dụng mã giảm giá
+      - chỗ này có ưu đãi gì
+      - nhập mã giảm giá ở đâu
+      - có chương trình giảm giá cho khách mới không
+      - có voucher cho đặt phòng nhiều đêm không
+      - khuyến mãi dịp lễ tết như thế nào
+      - mã giảm giá tối đa được giảm bao nhiêu
+      - mã hết hạn có dùng được nữa không
+      - mình có mã nhưng nhập không được
+      - điều kiện sử dụng mã giảm giá là gì
+      - mỗi đơn được dùng mấy mã giảm giá
+      - tại sao mã giảm giá không áp dụng được
+      - mã giảm giá không hiện số tiền giảm
+
+  - intent: ask_promotion_list
+    examples: |
+      - xem danh sách khuyến mãi
+      - bot cho tôi mã giảm giá
+      - liệt kê khuyến mãi giúp tôi
+      - cho tôi xem tất cả mã giảm giá
+      - các mã giảm giá đang có là gì
+      - voucher nào đang hoạt động
+
+  - intent: ask_promo_homestays
+    examples: |
+      - Mã [SUMMER20](promo_code) áp dụng ở homestay nào?
+      - Mã [SUPERDEAL](promo_code) dùng ở đâu?
+      - Mã giảm giá [SUMMER5](promo_code) áp dụng cho homestay nào?
+      - Những homestay nào dùng được mã [SUMMER15](promo_code)?
+      - Danh sách homestay áp dụng mã [SUMMER10](promo_code)
+
+
+  # ===== SUPPORT =====
+  - intent: ask_support
+    examples: |
+      - mình muốn liên hệ hỗ trợ
+      - bên bạn hỗ trợ khách như thế nào
+      - có ai hỗ trợ mình check lỗi không
+      - mình cần gặp nhân viên tư vấn
+      - support giúp mình với
+      - mình muốn báo lỗi hệ thống
+      - homestay không đúng như mô tả thì làm sao
+      - chủ nhà không nghe máy, mình phải làm gì
+      - mình muốn góp ý cho giao diện trang web
+      - tôi cần liên hệ quản lý thì làm sao
+      - làm sao gửi khiếu nại hoặc góp ý
+      - muốn gửi góp ý cho hệ thống thì phải làm sao
+
+  - intent: ask_check_booking
+    examples: |
+      - kiểm tra giúp mình tình trạng đơn này với
+      - làm sao để xem trạng thái đơn đặt phòng
+      - mình muốn xem booking của mình
+      - đơn của mình đã được xác nhận chưa
+      - check giúp mình mã đặt phòng
+      - booking của mình đâu rồi
+
+  # ===== OWNER =====
+  - intent: ask_owner_manage_homestay
+    examples: |
+      - Làm sao thêm homestay mới?
+      - Tôi muốn tạo homestay mới thì làm sao?
+      - Thêm homestay ở đâu?
+      - Chủ nhà thêm phòng mới như thế nào?
+      - Tạo mới homestay thì vào mục nào?
+
+  - intent: ask_owner_update_price
+    examples: |
+      - Làm sao cập nhật giá phòng?
+      - Thay đổi giá homestay như thế nào?
+      - Muốn chỉnh giá phòng thì phải làm sao?
+      - Cập nhật giá cho từng ngày như thế nào?
+      - Cập nhật giá vào cuối tuần ở đâu?
+
+  - intent: ask_owner_revenue
+    examples: |
+      - Cách xem doanh thu từng homestay?
+      - Xem doanh thu theo tháng ở đâu?
+      - Làm sao xem lịch sử doanh thu?
+      - Tôi muốn xem tổng tiền kiếm được thì làm sao?
+
+  - intent: ask_owner_reply_review
+    examples: |
+      - Làm sao trả lời đánh giá?
+      - Tôi muốn phản hồi đánh giá thì làm sao?
+      - Chủ nhà trả lời review ở đâu?
+      - Phản hồi bình luận của khách như thế nào?
+
+  # ===== LOGIN =====
+  - intent: ask_login_issue
+    examples: |
+      - Vì sao tôi không đăng nhập được?
+      - Tại sao đăng nhập thất bại?
+      - Không vào được tài khoản thì phải làm sao?
+      - hệ thống báo sai tài khoản hoặc mật khẩu là sao
+
+  - intent: ask_reset_password
+    examples: |
+      - Tôi quên mật khẩu, phải làm sao?
+      - Làm sao lấy lại mật khẩu?
+      - Reset password ở đâu?
+
+  # ===== AMENITIES =====
+  - intent: ask_homestay_amenities
+    examples: |
+      - Homestay có máy lạnh không?
+      - Có hồ bơi không?
+      - Có BBQ không?
+      - Có bếp nấu ăn không?
+      - Có wifi tốc độ cao không?
+      - Có cho thuê xe máy không?
+      - Có phục vụ ăn sáng không?
+
+  # ===== SEARCH HOMESTAY =====
+  - intent: search_homestay
+    examples: |
+      - Tìm homestay ở [Cần Thơ](location)
+      - Có homestay nào tại [Đà Nẵng](location) không?
+      - Cho tôi xem homestay ở [Hà Nội](location)
+      - tìm homestay ở [Cần Thơ](location)
+      - tìm homestay cần thơ
+      - có homestay nào ở [Cần Thơ](location) không
+      - cho tôi tìm phòng ở [Cần Thơ](location)
+      - homestay tại [Đà Nẵng](location)
+      - tìm phòng ở [Hà Nội](location)
+      - có phòng trống ở [Đà Lạt](location) không
+      - mình muốn tìm homestay ở [Vũng Tàu](location)
+      - có chỗ ở nào tại [Huế](location) không
+      - phòng trọ ở [Cà Mau](location)
+      - homestay ở [Hải Phòng](location) có không
+      - có homestay nào gần [Sóc Trăng](location)
+      - tìm nơi ở tại [Long An](location)
+      - cho mình xem homestay ở [Buôn Ma Thuột](location)
+      - greenstay có homestay nào ở [Sa Pa](location) không
+
+  - intent: inform_booking_id
+    examples: |
+      - mã đơn là [25](booking_id)
+      - mã booking là [BK1234](booking_id)
+      - [30](booking_id)
+
+  - intent: nlu_fallback
+    examples: |
+      - asdkjahsdkjashd
+      - qweqweqweqwe
+      - ????
+      - bla bla bla
+
+  # ===== ADVANCED SEARCH =====
+  - intent: search_homestay_advanced
+    examples: |
+      - Tìm homestay ở [Cần Thơ](location) cho [2](guests) người từ [20/12](checkin) đến [22/12](checkout)
+
+  - intent: search_homestay_by_amenity
+    examples: |
+      - Tìm homestay ở [Đà Lạt](location) có [hồ bơi](amenity)
+
+  - intent: estimate_booking_price
+    examples: |
+      - Tính giúp mình tiền từ [20/12](checkin) đến [22/12](checkout) cho [2](guests) khách homestay [25](hid)
+
+  - intent: check_promo_code
+    examples: |
+      - Mã [GREEN10](promo_code) còn dùng được không?
+
+  - intent: check_booking_by_contact
+    examples: |
+      - Kiểm tra booking theo số [0912345678](phone)
+
+  - intent: search_homestay_by_price
+    examples: |
+      - Homestay nào rẻ nhất ở [Đà Lạt](location)?
+
+  - intent: search_homestay_by_rating
+    examples: |
+      - Homestay nào rating cao ở [Cần Thơ](location)?
+
+  - intent: search_homestay_holiday
+    examples: |
+      - Tết này ở [Đà Lạt](location) có homestay nào còn phòng không?
+
+  - intent: owner_view_today_bookings
+    examples: |
+      - Cho tôi xem booking hôm nay
+
+  - intent: owner_latest_reviews
+    examples: |
+      - Có đánh giá mới nào cần phản hồi không?
+  - intent: ask_booking_info
+    examples: |
+      - xem thông tin đơn [266](booking_id)
+      - thông tin đơn [148](booking_id)
+      - chi tiết đơn [299](booking_id)
+      - xem chi tiết đơn đặt phòng [310](booking_id)
+      - xem booking [155](booking_id)
+      - cho tôi xem thông tin booking [200](booking_id)
+      - tôi muốn xem thông tin đơn đặt phòng
+      - chi tiết đặt phòng
+      - show booking info
+      - booking details
+
+  - intent: search_homestay_by_price
+    examples: |
+      - Có homestay nào giá từ [800000](price_min) đến [1000000](price_max) không?
+      - Tìm homestay giá từ [700k](price_min) đến [1 triệu](price_max)
+      - Homestay nào giá dưới [900k](price_max)?
+      - Có homestay nào dưới [500000](price_max)?
+      - Tôi muốn homestay giá khoảng [600000](price_min) đến [900000](price_max)
+      - Homestay nào tầm giá [850k](price_min)?
+      - Homestay nào dưới [1 triệu](price_max)?
+      - Cho tôi homestay giá từ [500000](price_min)
+      - Tìm homestay giá thấp hơn [800000](price_max)
+      - Homestay giá từ [900.000](price_min) đến [1.200.000](price_max)
+
+# ===========================
+#   REGEX & LOOKUP (CHUẨN)
+# ===========================
+
+regex:
+  - name: booking_id
+    pattern: "[A-Za-z]{0,3}[0-9]{1,6}"
+
+lookup:
+  - name: location
+    examples: |
+      - Cần Thơ
+      - Hà Nội
+      - Đà Nẵng
+      - An Giang
+      - Bà Rịa - Vũng Tàu
+      - Bắc Giang
+      - Bắc Kạn
+      - Bạc Liêu
+      - Bắc Ninh
+      - Bến Tre
+      - Bình Định
+      - Bình Dương
+      - Bình Phước
+      - Bình Thuận
+      - Cà Mau
+      - Cao Bằng
+      - Cần Thơ
+      - Đà Nẵng
+      - Đắk Lắk
+      - Đắk Nông
+      - Điện Biên
+      - Đồng Nai
+      - Đồng Tháp
+      - Gia Lai
+      - Hà Giang
+      - Hà Nam
+      - Hà Nội
+      - Hà Tĩnh
+      - Hải Dương
+      - Hải Phòng
+      - Hậu Giang
+      - Hòa Bình
+      - Hưng Yên
+      - Khánh Hòa
+      - Kiên Giang
+      - Kon Tum
+      - Lai Châu
+      - Lâm Đồng
+      - Lạng Sơn
+      - Lào Cai
+      - Long An
+      - Nam Định
+      - Nghệ An
+      - Ninh Bình
+      - Ninh Thuận
+      - Phú Thọ
+      - Phú Yên
+      - Quảng Bình
+      - Quảng Nam
+      - Quảng Ngãi
+      - Quảng Ninh
+      - Quảng Trị
+      - Sóc Trăng
+      - Sơn La
+      - Tây Ninh
+      - Thái Bình
+      - Thái Nguyên
+      - Thanh Hóa
+      - Thừa Thiên Huế
+      - Tiền Giang
+      - TP. Hồ Chí Minh
+      - Trà Vinh
+      - Tuyên Quang
+      - Vĩnh Long
+      - Vĩnh Phúc
+      - Yên Bái

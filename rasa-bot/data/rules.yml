@@ -1,0 +1,223 @@
+version: "3.1"
+
+rules:
+
+  # ===== GREET =====
+  - rule: Respond to greeting
+    steps:
+      - intent: greet
+      - action: utter_greet
+
+  # ===== GOODBYE =====
+  - rule: Respond to goodbye
+    steps:
+      - intent: goodbye
+      - action: utter_goodbye
+
+  # ===== THANKS =====
+  - rule: Respond to thanks
+    steps:
+      - intent: thanks
+      - action: utter_thanks
+
+
+  # ===== BOOKING =====
+  - rule: Hỏi cách đặt phòng
+    steps:
+      - intent: ask_booking
+      - action: utter_ask_booking
+
+  - rule: Hỏi cách huỷ phòng
+    steps:
+      - intent: ask_cancel
+      - action: utter_ask_cancel
+
+
+  # ===== PAYMENT =====
+  - rule: Hỏi phương thức thanh toán
+    steps:
+      - intent: ask_payment_methods
+      - action: utter_ask_payment_methods
+
+  - rule: Hỏi lỗi thanh toán
+    steps:
+      - intent: ask_payment_issue
+      - action: utter_ask_payment_issue
+
+  - rule: Hướng dẫn thanh toán online
+    steps:
+      - intent: ask_payment_steps
+      - action: utter_payment_steps
+
+  - rule: Hướng dẫn thanh toán COD
+    steps:
+      - intent: ask_payment_cod_steps
+      - action: utter_payment_cod_steps
+
+
+  # ===== PROMOTION =====
+  - rule: Trả lời khuyến mãi bằng action
+    steps:
+      - intent: ask_promotion
+      - action: action_list_promotions
+
+  - rule: Liệt kê danh sách khuyến mãi
+    steps:
+      - intent: ask_promotion_list
+      - action: action_list_promotions
+
+
+  # ===== SUPPORT =====
+  - rule: Hỏi hỗ trợ
+    steps:
+      - intent: ask_support
+      - action: utter_ask_support
+
+  - rule: Show homestays that apply a promo code
+    steps:
+      - intent: ask_promo_homestays
+      - action: action_list_promo_homestays
+
+
+  # ===== CHECK BOOKING =====
+
+  # 1️⃣ Hỏi kiểm tra đơn — chưa có mã
+  - rule: Hỏi kiểm tra đơn — chưa có mã
+    condition:
+      - slot_was_set:
+          - booking_id: null
+    steps:
+      - intent: ask_check_booking
+      - action: utter_ask_check_booking
+
+  # 2️⃣ Người dùng cung cấp mã → kiểm tra
+  - rule: Người dùng cung cấp mã đơn
+    steps:
+      - intent: inform_booking_id
+      - action: action_check_booking_status
+      - slot_was_set:
+          - booking_id: null   # RESET SLOT
+
+  # 3️⃣ Hỏi trạng thái đơn khi đã có mã
+  - rule: Hỏi trạng thái đơn khi đã có mã
+    condition:
+      - slot_was_set:
+          - booking_id
+    steps:
+      - intent: ask_booking_status
+      - action: action_check_booking_status
+      - slot_was_set:
+          - booking_id: null   # RESET SLOT
+
+  - rule: Get booking info
+    steps:
+      - intent: ask_booking_info
+      - action: action_get_booking_info
+
+  # ===== OWNER =====
+  - rule: Hỏi quản lý homestay
+    steps:
+      - intent: ask_owner_manage_homestay
+      - action: utter_ask_owner_manage_homestay
+
+  - rule: Hỏi cập nhật giá
+    steps:
+      - intent: ask_owner_update_price
+      - action: utter_ask_owner_update_price
+
+  - rule: Hỏi doanh thu
+    steps:
+      - intent: ask_owner_revenue
+      - action: utter_ask_owner_revenue
+
+  - rule: Hỏi trả lời đánh giá
+    steps:
+      - intent: ask_owner_reply_review
+      - action: utter_ask_owner_reply_review
+
+
+  # ===== LOGIN =====
+  - rule: Hỏi lỗi đăng nhập
+    steps:
+      - intent: ask_login_issue
+      - action: utter_ask_login_issue
+
+  - rule: Hỏi quên mật khẩu
+    steps:
+      - intent: ask_reset_password
+      - action: utter_ask_reset_password
+
+
+  # ===== AMENITIES =====
+  - rule: Hỏi tiện ích
+    steps:
+      - intent: ask_homestay_amenities
+      - action: utter_ask_homestay_amenities
+
+
+  # ===== SEARCH HOMESTAY =====
+  - rule: Tìm homestay theo tỉnh
+    steps:
+      - intent: search_homestay
+      - action: action_search_homestay
+
+  - rule: Tìm homestay nâng cao
+    steps:
+      - intent: search_homestay_advanced
+      - action: action_search_homestay_advanced
+
+  - rule: Tìm theo tiện ích
+    steps:
+      - intent: search_homestay_by_amenity
+      - action: action_search_homestay_by_amenity
+
+  - rule: Tìm theo giá
+    steps:
+      - intent: search_homestay_by_price
+      - action: action_search_homestay_by_price
+
+  - rule: Tìm theo rating
+    steps:
+      - intent: search_homestay_by_rating
+      - action: action_search_homestay_by_rating
+
+  - rule: Tìm dịp lễ
+    steps:
+      - intent: search_homestay_holiday
+      - action: action_search_homestay_holiday
+
+
+  # ===== ADVANCED =====
+  - rule: Tính tổng tiền
+    steps:
+      - intent: estimate_booking_price
+      - action: action_estimate_booking_price
+
+  - rule: Kiểm tra mã giảm giá
+    steps:
+      - intent: check_promo_code
+      - action: action_check_promo_code
+
+  - rule: Kiểm tra booking qua phone/email
+    steps:
+      - intent: check_booking_by_contact
+      - action: action_check_booking_by_contact
+
+
+  # ===== OWNER ADVANCED =====
+  - rule: Chủ nhà xem booking hôm nay
+    steps:
+      - intent: owner_view_today_bookings
+      - action: action_owner_view_today_bookings
+
+  - rule: Xem đánh giá mới
+    steps:
+      - intent: owner_latest_reviews
+      - action: action_owner_latest_reviews
+
+
+  # ===== FALLBACK =====
+  - rule: fallback
+    steps:
+      - intent: nlu_fallback
+      - action: utter_default

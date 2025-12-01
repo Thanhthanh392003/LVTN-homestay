@@ -1,0 +1,19 @@
+# Backend
+backend/node_modules/
+backend/public/uploads/
+backend/.env
+
+# Frontend
+frontend/node_modules/
+frontend/public/uploads/
+frontend/.env
+
+# Rasa
+rasa-bot/.venv/
+rasa-bot/__pycache__/
+rasa-bot/models/
+rasa-bot/.rasa/
+
+# System
+.DS_Store
+Thumbs.db

@@ -1,0 +1,205 @@
+version: "3.1"
+
+stories:
+
+###################################
+# BASIC RESPONSE STORIES
+###################################
+
+- story: greet story
+  steps:
+    - intent: greet
+    - action: utter_greet
+
+- story: goodbye story
+  steps:
+    - intent: goodbye
+    - action: utter_goodbye
+
+- story: thanks story
+  steps:
+    - intent: thanks
+    - action: utter_thanks
+
+
+###################################
+# BOOKING STORIES
+###################################
+
+- story: ask booking story
+  steps:
+    - intent: ask_booking
+    - action: utter_ask_booking
+
+- story: ask cancel story
+  steps:
+    - intent: ask_cancel
+    - action: utter_ask_cancel
+
+- story: check booking with id
+  steps:
+    - intent: inform_booking_id
+      entities:
+        - booking_id: "1234"
+    - action: action_check_booking_status
+
+
+###################################
+# PAYMENT STORIES
+###################################
+
+- story: payment methods story
+  steps:
+    - intent: ask_payment_methods
+    - action: utter_ask_payment_methods
+
+- story: payment issue story
+  steps:
+    - intent: ask_payment_issue
+    - action: utter_ask_payment_issue
+
+- story: payment cod
+  steps:
+    - intent: ask_payment_cod_steps
+    - action: utter_payment_cod_steps
+
+
+###################################
+# PROMOTION STORIES
+###################################
+
+- story: promotion list
+  steps:
+    - intent: ask_promotion_list
+    - action: action_list_promotions
+
+
+###################################
+# SUPPORT STORIES
+###################################
+
+- story: basic support story
+  steps:
+    - intent: ask_support
+    - action: utter_ask_support
+
+
+###################################
+# HOMESTAY SEARCH STORIES
+###################################
+
+- story: search homestay example
+  steps:
+    - intent: search_homestay
+      entities:
+        - location: "Cần Thơ"
+    - action: action_search_homestay
+
+
+###################################
+# ADVANCED SEARCH STORIES
+###################################
+
+- story: advanced search story
+  steps:
+    - intent: search_homestay_advanced
+      entities:
+        - location: "Đà Nẵng"
+        - guests: "2"
+        - checkin: "20/12"
+        - checkout: "22/12"
+    - action: action_search_homestay_advanced
+
+- story: search by amenity
+  steps:
+    - intent: search_homestay_by_amenity
+      entities:
+        - location: "Đà Lạt"
+        - amenity: "hồ bơi"
+    - action: action_search_homestay_by_amenity
+
+- story: search by price
+  steps:
+    - intent: search_homestay_by_price
+      entities:
+        - location: "Đà Lạt"
+    - action: action_search_homestay_by_price
+
+- story: search rating
+  steps:
+    - intent: search_homestay_by_rating
+      entities:
+        - location: "Cần Thơ"
+    - action: action_search_homestay_by_rating
+
+- story: search holiday
+  steps:
+    - intent: search_homestay_holiday
+      entities:
+        - location: "Đà Lạt"
+    - action: action_search_homestay_holiday
+
+
+###################################
+# BOOKING COST
+###################################
+
+- story: estimate booking price
+  steps:
+    - intent: estimate_booking_price
+    - action: action_estimate_booking_price
+
+
+###################################
+# PROMO CHECK
+###################################
+
+- story: promo check
+  steps:
+    - intent: check_promo_code
+      entities:
+        - promo_code: "GREEN10"
+    - action: action_check_promo_code
+
+
+###################################
+# CONTACT CHECK
+###################################
+
+- story: booking by contact
+  steps:
+    - intent: check_booking_by_contact
+      entities:
+        - phone: "0909123456"
+    - action: action_check_booking_by_contact
+
+
+###################################
+# OWNER
+###################################
+
+- story: owner today bookings
+  steps:
+    - intent: owner_view_today_bookings
+    - action: action_owner_view_today_bookings
+
+- story: owner latest reviews
+  steps:
+    - intent: owner_latest_reviews
+    - action: action_owner_latest_reviews
+
+
+###################################
+# FALLBACK TRAINING STORY
+###################################
+
+- story: fallback example
+  steps:
+    - intent: nlu_fallback
+    - action: utter_default
+
+
+- story: search homestay by price
+  steps:
+    - intent: search_homestay_by_price
+    - action: action_search_homestay_by_price
