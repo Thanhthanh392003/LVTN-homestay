@@ -1,25 +1,26 @@
 // src/pages/OwnerDashboard.jsx
 import React from "react";
 import {
-    Layout, Row, Col, Card, Button, Statistic, Space, Typography,
+    Layout, Row, Col, Card, Button, Space, Typography,
     Drawer, Form, Input, DatePicker, Select, message, Divider, Tag
 } from "antd";
 import {
     HomeOutlined, BookOutlined, DollarOutlined,
-    StarOutlined, GiftOutlined, BarChartOutlined,
+    StarOutlined, BarChartOutlined,
     UserOutlined, MailOutlined, PhoneOutlined, EnvironmentOutlined,
     CalendarOutlined
 } from "@ant-design/icons";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
 import TopBar from "../components/TopBar";
 import { useAuth } from "../context/AuthContext";
 import { usersApi } from "../services/users";
-import { homestaysApi } from "../services/homestays"; // <-- thêm import này
+import { homestaysApi } from "../services/homestays";
+import { bookingApi } from "../services/bookings";
 
 const { Title, Paragraph, Text } = Typography;
 
-// Logger (giữ nguyên)
+// Logger
 function logAxiosError(tag, err) {
     if (err?.response) {
         console.group(`[${tag}] AxiosError response`);
@@ -42,7 +43,7 @@ export default function OwnerDashboard() {
     const { user, logout, setUser } = useAuth();
     const nav = useNavigate();
 
-    // KPI: đổi để có setter (đồng bộ số Homestay)
+    // KPI
     const [kpi, setKpi] = React.useState({
         homestays: 0,
         bookingsThisMonth: 0,
@@ -50,24 +51,87 @@ export default function OwnerDashboard() {
         ratingAvg: 0,
     });
 
-    // Đồng bộ số Homestay theo danh sách của owner
+    // Đếm homestay
     React.useEffect(() => {
         let alive = true;
         const load = async () => {
             try {
+                if (!user) return;
                 const res = await homestaysApi.myList();
                 const list = Array.isArray(res) ? res : res?.homestays || [];
                 if (alive) setKpi((k) => ({ ...k, homestays: list.length }));
             } catch (e) {
-                // Chỉ log nhẹ để không làm phiền người dùng
                 console.warn("[OwnerDashboard] load homestays count failed:", e?.response?.data || e?.message || e);
             }
         };
-        if (user) load();
+        load();
         return () => { alive = false; };
     }, [user]);
 
-    // ====== Drawer Sửa hồ sơ (giữ nguyên chức năng) ======
+    // Đơn + doanh thu tháng
+    const loadMonthlyStats = React.useCallback(async () => {
+        try {
+            if (!user) return;
+
+            const data = await bookingApi.ownerList();
+            // eslint-disable-next-line no-console
+            console.log("[OwnerDashboard] bookings raw:", data);
+
+            const list =
+                (Array.isArray(data) && data) ||
+                data?.items || data?.rows || data?.list || data?.result ||
+                (Array.isArray(data?.data) && data?.data) ||
+                data?.data?.items || data?.data?.rows || data?.data?.list || data?.data?.result ||
+                [];
+
+            const start = dayjs().startOf("month");
+            const end = dayjs().endOf("month");
+
+            const inMonth = (Array.isArray(list) ? list : []).filter((b) => {
+                const created = dayjs(b?.Created_at || b?.created_at || b?.createdAt);
+                return created.isValid() && (created.isAfter(start.subtract(1, "ms")) && created.isBefore(end.add(1, "ms")));
+            });
+
+            const orders = inMonth.length;
+
+            const revenue = inMonth.reduce((sum, b) => {
+                const total = b?.Total_price ?? b?.total_price ?? b?.Amount ?? b?.amount ?? null;
+                if (typeof total === "number") return sum + total;
+
+                const details = Array.isArray(b?.details) ? b.details : [];
+                const lineSum = details.reduce((s, d) => s + (d?.Line_total ?? d?.line_total ?? 0), 0);
+                return sum + lineSum;
+            }, 0);
+
+            setKpi((prev) => ({ ...prev, bookingsThisMonth: orders, revenueThisMonth: revenue }));
+
+            const total =
+                data?.total ?? data?.count ?? data?.data?.total ?? data?.data?.count ?? orders;
+
+            if (orders === 0 && Number(total) > 0) {
+                // eslint-disable-next-line no-console
+                console.warn("[OwnerDashboard] total>0 nhưng list rỗng -> cần kiểm tra key items/rows/list/result trên payload.");
+            }
+        } catch (e) {
+            const code = e?.response?.status;
+            const msg = e?.response?.data?.message || e?.message;
+            if (code === 401) {
+                console.log("[OwnerDashboard] monthly stats 401");
+            } else if (code === 403) {
+                message.error("Tài khoản hiện không có quyền Owner.");
+            } else {
+                message.error(msg || "Không tải được số liệu tháng này.");
+            }
+            // eslint-disable-next-line no-console
+            console.log("[OwnerDashboard] loadMonthlyStats error:", code, msg, e?.response?.data);
+        }
+    }, [user]);
+
+    React.useEffect(() => {
+        loadMonthlyStats();
+    }, [loadMonthlyStats]);
+
+    // Drawer hồ sơ
     const [pOpen, setPOpen] = React.useState(false);
     const [pSaving, setPSaving] = React.useState(false);
     const [pForm] = Form.useForm();
@@ -114,7 +178,7 @@ export default function OwnerDashboard() {
         }
     };
 
-    // =============== ONLY UI STYLES (không đổi cấu trúc) ===============
+    // Styles
     const pageBg = {
         minHeight: "100vh",
         background:
@@ -141,13 +205,6 @@ export default function OwnerDashboard() {
         background: bg,
         boxShadow: "0 12px 26px rgba(0,0,0,.12)",
     });
-    const actionCard = (tint) => ({
-        borderRadius: 22,
-        background: `linear-gradient(180deg, ${tint} 0%, #ffffff 90%)`,
-        boxShadow: "0 24px 60px rgba(15,23,42,.08)",
-        height: "100%",
-    });
-    // ===================================================================
 
     return (
         <Layout style={pageBg}>
@@ -183,7 +240,7 @@ export default function OwnerDashboard() {
             </div>
 
             <Layout.Content style={wrap}>
-                {/* KPI tiles */}
+                {/* KPI */}
                 <Row gutter={[16, 16]}>
                     <Col xs={24} md={6}>
                         <Card bordered={false} style={whiteCard} bodyStyle={{ padding: 18 }}>
@@ -230,7 +287,7 @@ export default function OwnerDashboard() {
                                         Doanh thu tháng
                                     </Text>
                                     <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.2 }}>
-                                        {kpi.revenueThisMonth} đ
+                                        {Number(kpi.revenueThisMonth || 0).toLocaleString("vi-VN")} đ
                                     </div>
                                 </div>
                             </Space>
@@ -267,7 +324,13 @@ export default function OwnerDashboard() {
                                     <span>Quản lý Homestay</span>
                                 </Space>
                             }
-                            style={actionCard("rgba(16,163,74,.10)")}>
+                            style={{
+                                borderRadius: 22,
+                                background: `linear-gradient(180deg, rgba(16,163,74,.10) 0%, #ffffff 90%)`,
+                                boxShadow: "0 24px 60px rgba(15,23,42,.08)",
+                                height: "100%",
+                            }}
+                        >
                             <Space direction="vertical" size={8} style={{ width: "100%" }}>
                                 <Paragraph style={{ marginTop: 4 }}>
                                     Thêm/sửa/xoá homestay, quản lý ảnh, giá, trạng thái…
@@ -289,21 +352,27 @@ export default function OwnerDashboard() {
                         <Card
                             title={
                                 <Space align="center" size={12}>
-                                    <div style={tileIcon("#2563eb")}>
-                                        <BookOutlined />
-                                    </div>
+                                    <div style={tileIcon("#2563eb")}><BookOutlined /></div>
                                     <span>Quản lý Đơn đặt phòng</span>
                                 </Space>
                             }
-                            style={actionCard("rgba(37,99,235,.10)")}>
-                            <Space direction="vertical" size={8} style={{ width: "100%" }}>
-                                <Paragraph style={{ marginTop: 4 }}>
-                                    Duyệt/huỷ booking, xem chi tiết, lịch nhận trả phòng…
-                                </Paragraph>
-                                <Button block icon={<BookOutlined />} style={{ height: 40, fontWeight: 600 }}>
-                                    <Link to="/owner/bookings">Xem đơn đặt phòng</Link>
-                                </Button>
-                            </Space>
+                            style={{
+                                borderRadius: 22,
+                                background: `linear-gradient(180deg, rgba(37,99,235,.10) 0%, #ffffff 90%)`,
+                                boxShadow: "0 24px 60px rgba(15,23,42,.08)",
+                                height: "100%",
+                            }}
+                        >
+                            <Paragraph>Duyệt/huỷ booking, xem chi tiết, lịch nhận trả phòng…</Paragraph>
+                            <Button
+                                type="primary"
+                                block
+                                icon={<BookOutlined />}
+                                style={{ height: 40, fontWeight: 600 }}
+                                onClick={() => nav("/owner/bookings")}
+                            >
+                                Xem đơn đặt phòng
+                            </Button>
                         </Card>
                     </Col>
 
@@ -311,25 +380,35 @@ export default function OwnerDashboard() {
                         <Card
                             title={
                                 <Space align="center" size={12}>
-                                    <div style={tileIcon("#f59e0b")}>
-                                        <BarChartOutlined />
-                                    </div>
-                                    <span>Khuyến mãi & Doanh thu</span>
+                                    <div style={tileIcon("#f59e0b")}><BarChartOutlined /></div>
+                                    <span>Doanh thu</span>
                                 </Space>
                             }
-                            style={actionCard("rgba(245,158,11,.12)")}>
+                            style={{
+                                borderRadius: 22,
+                                background: `linear-gradient(180deg, rgba(245,158,11,.12) 0%, #ffffff 90%)`,
+                                boxShadow: "0 24px 60px rgba(15,23,42,.08)",
+                                height: "100%",
+                            }}
+                        >
                             <Space direction="vertical" size={8} style={{ width: "100%" }}>
                                 <Paragraph style={{ marginTop: 4 }}>
-                                    Tạo mã giảm giá, xem thống kê doanh thu, biểu đồ theo tháng.
+                                    Xem thống kê doanh thu, lọc theo ngày / tháng / năm và phân tích hiệu quả kinh doanh.
                                 </Paragraph>
-                                <Space.Compact block>
-                                    <Button icon={<GiftOutlined />}>
-                                        <Link to="/owner/promotions">Khuyến mãi</Link>
-                                    </Button>
-                                    <Button icon={<BarChartOutlined />}>
-                                        <Link to="/owner/analytics">Thống kê</Link>
-                                    </Button>
-                                </Space.Compact>
+                                <Button
+                                    type="primary"
+                                    block
+                                    icon={<BarChartOutlined />}
+                                    style={{
+                                        height: 40,
+                                        fontWeight: 600,
+                                        background: "#16a34a",
+                                        borderColor: "#16a34a",
+                                    }}
+                                    onClick={() => nav("/owner/analytics")}
+                                >
+                                    Xem thống kê doanh thu
+                                </Button>
                             </Space>
                         </Card>
                     </Col>
@@ -337,67 +416,90 @@ export default function OwnerDashboard() {
 
                 {/* Hàng 3 */}
                 <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
-                    <Col xs={24} md={8}>
+                    <Col xs={24} md={12}>
                         <Card
                             title={
                                 <Space align="center" size={12}>
-                                    <div style={tileIcon("#8b5cf6")}>
-                                        <StarOutlined />
-                                    </div>
+                                    <div style={tileIcon("#8b5cf6")}><StarOutlined /></div>
                                     <span>Phản hồi & Đánh giá</span>
                                 </Space>
                             }
-                            style={actionCard("rgba(139,92,246,.12)")}>
+                            style={{
+                                borderRadius: 22,
+                                background: `linear-gradient(180deg, rgba(139,92,246,.12) 0%, #ffffff 90%)`,
+                                boxShadow: "0 24px 60px rgba(15,23,42,.08)",
+                                height: "100%",
+                            }}
+                        >
                             <Paragraph style={{ marginTop: 4 }}>
                                 Xem phản hồi khách, trả lời đánh giá.
                             </Paragraph>
-                            <Button block icon={<StarOutlined />} style={{ height: 40, fontWeight: 600 }}>
-                                <Link to="/owner/feedbacks">Quản lý phản hồi</Link>
+                            <Button
+                                block
+                                icon={<StarOutlined />}
+                                style={{
+                                    height: 40,
+                                    fontWeight: 600,
+                                    background: "#16a34a",
+                                    borderColor: "#16a34a",
+                                    color: "#fff"
+                                }}
+                                onClick={() => nav("/owner/reviews")}
+                            >
+                                Quản lý phản hồi
                             </Button>
+
                         </Card>
                     </Col>
-                    <Col xs={24} md={8}>
+
+                    <Col xs={24} md={12}>
                         <Card
                             title={
                                 <Space align="center" size={12}>
-                                    <div style={tileIcon("#06b6d4")}>
-                                        <DollarOutlined />
-                                    </div>
-                                    <span>Tiện ích & Dịch vụ</span>
-                                </Space>
-                            }
-                            style={actionCard("rgba(6,182,212,.12)")}>
-                            <Paragraph style={{ marginTop: 4 }}>
-                                Thiết lập tiện ích (wifi, bữa sáng, đưa đón…).
-                            </Paragraph>
-                            <Button block style={{ height: 40, fontWeight: 600 }}>
-                                <Link to="/owner/amenities">Quản lý tiện ích</Link>
-                            </Button>
-                        </Card>
-                    </Col>
-                    <Col xs={24} md={8}>
-                        <Card
-                            title={
-                                <Space align="center" size={12}>
-                                    <div style={tileIcon("#ef4444")}>
-                                        <DollarOutlined />
-                                    </div>
+                                    <div style={tileIcon("#ef4444")}><DollarOutlined /></div>
                                     <span>Khiếu nại</span>
                                 </Space>
                             }
-                            style={actionCard("rgba(239,68,68,.12)")}>
+                            style={{
+                                borderRadius: 22,
+                                background: `linear-gradient(180deg, rgba(239,68,68,.12) 0%, #ffffff 90%)`,
+                                boxShadow: "0 24px 60px rgba(15,23,42,.08)",
+                                height: "100%",
+                            }}
+                        >
                             <Paragraph style={{ marginTop: 4 }}>
                                 Tiếp nhận & xử lý khiếu nại của khách.
                             </Paragraph>
-                            <Button block style={{ height: 40, fontWeight: 600 }}>
-                                <Link to="/owner/complaints">Xử lý khiếu nại</Link>
+                            <Button
+                                block
+                                icon={<DollarOutlined />}
+                                style={{
+                                    height: 40,
+                                    fontWeight: 600,
+                                    background: "#16a34a",
+                                    borderColor: "#16a34a",
+                                    color: "#fff",
+                                    boxShadow: "0 4px 14px rgba(22,163,74,0.25)",
+                                }}
+                                onMouseEnter={(e) => {
+                                    e.currentTarget.style.background = "#15803d";
+                                    e.currentTarget.style.borderColor = "#15803d";
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.currentTarget.style.background = "#16a34a";
+                                    e.currentTarget.style.borderColor = "#16a34a";
+                                }}
+                                onClick={() => nav("/owner/complaints")}
+                            >
+                                Xử lý khiếu nại
                             </Button>
+
                         </Card>
                     </Col>
                 </Row>
             </Layout.Content>
 
-            {/* Drawer hồ sơ — CHỈ CHỈNH UI */}
+            {/* Drawer hồ sơ */}
             <Drawer
                 open={pOpen}
                 onClose={() => setPOpen(false)}
@@ -406,7 +508,7 @@ export default function OwnerDashboard() {
                 title={null}
                 extra={null}
             >
-                {/* Header đẹp hơn */}
+                {/* Header */}
                 <div
                     style={{
                         padding: "18px 24px",
@@ -460,21 +562,12 @@ export default function OwnerDashboard() {
                                     label="Họ tên"
                                     rules={[{ required: true, message: "Nhập họ tên" }]}
                                 >
-                                    <Input
-                                        size="large"
-                                        placeholder="Nguyễn Văn A"
-                                        prefix={<UserOutlined className="text-gray-400" />}
-                                    />
+                                    <Input size="large" placeholder="Nguyễn Văn A" prefix={<UserOutlined className="text-gray-400" />} />
                                 </Form.Item>
                             </Col>
                             <Col xs={24} md={12}>
                                 <Form.Item name="U_Email" label="Email">
-                                    <Input
-                                        size="large"
-                                        disabled
-                                        placeholder="email@domain.com"
-                                        prefix={<MailOutlined className="text-gray-400" />}
-                                    />
+                                    <Input size="large" disabled placeholder="email@domain.com" prefix={<MailOutlined className="text-gray-400" />} />
                                 </Form.Item>
                             </Col>
                         </Row>
@@ -483,20 +576,12 @@ export default function OwnerDashboard() {
                         <Row gutter={16}>
                             <Col xs={24} md={12}>
                                 <Form.Item name="U_Phone" label="Số điện thoại">
-                                    <Input
-                                        size="large"
-                                        placeholder="0901234567"
-                                        prefix={<PhoneOutlined className="text-gray-400" />}
-                                    />
+                                    <Input size="large" placeholder="0901234567" prefix={<PhoneOutlined className="text-gray-400" />} />
                                 </Form.Item>
                             </Col>
                             <Col xs={24} md={12}>
                                 <Form.Item name="U_Address" label="Địa chỉ">
-                                    <Input
-                                        size="large"
-                                        placeholder="Số nhà, đường, phường/xã..."
-                                        prefix={<EnvironmentOutlined className="text-gray-400" />}
-                                    />
+                                    <Input size="large" placeholder="Số nhà, đường, phường/xã..." prefix={<EnvironmentOutlined className="text-gray-400" />} />
                                 </Form.Item>
                             </Col>
                         </Row>

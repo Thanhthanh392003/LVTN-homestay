@@ -17,8 +17,16 @@ function normalize(payload = {}) {
             payload.Price_per_day != null
                 ? Number.parseFloat(payload.Price_per_day)
                 : Number.parseFloat(payload.price_per_day),
+
+        // ⭐ THÊM CÁC CỘT NÀY
+        Max_guests: payload.Max_guests ?? payload.max_guests,
+        Bedrooms: payload.Bedrooms ?? payload.bedrooms,
+        Bathrooms: payload.Bathrooms ?? payload.bathrooms,
+        Living_rooms: payload.Living_rooms ?? payload.living_rooms,
+        Kitchens: payload.Kitchens ?? payload.kitchens,
+
         Status: payload.Status ?? payload.status ?? 'active',
-        U_ID: payload.U_ID ?? payload.owner_id, // truyền từ controller (session/body)
+        U_ID: payload.U_ID ?? payload.owner_id,
     };
 }
 
@@ -42,11 +50,15 @@ async function createHomestay(payload) {
         H_Address: data.H_Address.trim(),
         H_City: data.H_City.trim(),
         H_Description: data.H_Description,
-        Price_per_day: data.Price_per_day, // knex sẽ map DECIMAL ok
+        Price_per_day: data.Price_per_day,
+        Max_guests: data.Max_guests ?? 2,
+        Bedrooms: data.Bedrooms ?? 1,
+        Bathrooms: data.Bathrooms ?? 1,
+        Living_rooms: data.Living_rooms ?? 1,
+        Kitchens: data.Kitchens ?? 1,
         Status: data.Status || 'active',
         U_ID: data.U_ID,
     });
-
     const H_ID = typeof insertId === 'object' ? insertId?.H_ID || insertId?.id : insertId;
     return { H_ID, ...data };
 }
@@ -69,16 +81,9 @@ async function getManyHomestays(query = {}) {
     const rows = await homestayTable()
         .where(whereFn)
         .select(
-            'H_ID',
-            'U_ID',
-            'H_Name',
-            'H_Address',
-            'H_City',
-            'H_Description',
-            'Price_per_day',
-            'Status',
-            'Created_at',
-            'Updated_at'
+            'H_ID', 'U_ID', 'H_Name', 'H_Address', 'H_City', 'H_Description',
+            'Price_per_day', 'Max_guests', 'Bedrooms', 'Bathrooms',
+            'Living_rooms', 'Kitchens', 'Status', 'Created_at', 'Updated_at'
         )
         .limit(limit)
         .offset(offset);
@@ -94,16 +99,9 @@ async function getHomestayById(id) {
     return homestayTable()
         .where('H_ID', id)
         .select(
-            'H_ID',
-            'U_ID',
-            'H_Name',
-            'H_Address',
-            'H_City',
-            'H_Description',
-            'Price_per_day',
-            'Status',
-            'Created_at',
-            'Updated_at'
+            'H_ID', 'U_ID', 'H_Name', 'H_Address', 'H_City', 'H_Description',
+            'Price_per_day', 'Max_guests', 'Bedrooms', 'Bathrooms',
+            'Living_rooms', 'Kitchens', 'Status', 'Created_at', 'Updated_at'
         )
         .first();
 }
@@ -139,7 +137,11 @@ async function deleteHomestay(id) {
 async function getHomestaysByOwner(ownerId) {
     return homestayTable()
         .where('U_ID', ownerId)
-        .select('H_ID', 'U_ID', 'H_Name', 'H_Address', 'H_City', 'H_Description', 'Price_per_day', 'Status', 'Created_at', 'Updated_at')
+        .select(
+            'H_ID', 'U_ID', 'H_Name', 'H_Address', 'H_City', 'H_Description',
+            'Price_per_day', 'Max_guests', 'Bedrooms', 'Bathrooms',
+            'Living_rooms', 'Kitchens', 'Status', 'Created_at', 'Updated_at'
+        )
         .orderBy('H_ID', 'desc');
 }
 

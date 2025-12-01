@@ -1,5 +1,5 @@
 // src/App.jsx
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import ProtectedRoute from "./routes/ProtectedRoute";
 import RoleRoute from "./routes/RoleRoute";
 
@@ -8,52 +8,72 @@ import Register from "./pages/Register";
 
 import HomeAdmin from "./pages/HomeAdmin";
 import AdminUsers from "./pages/AdminUsers";
-import AdminHomestays from "./pages/AdminHomestays"; // 👈 THÊM ROUTE TRANG QUẢN LÝ HOMESTAY
+import AdminHomestays from "./pages/AdminHomestays";
+import AdminPromotions from "./pages/AdminPromotions";
+import AdminReviews from "./pages/AdminReviews";
+import AdminComplaints from "./pages/AdminComplaints";
+import AdminRevenue from "./pages/AdminRevenue";
 
-import HomeOwner from "./pages/HomeOwner";            // /owner/homestays
+
+import HomeOwner from "./pages/HomeOwner";
 import HomeCustomer from "./pages/HomeCustomer";
 import NotFound from "./pages/NotFound";
 
-import OwnerDashboard from "./pages/OwnerDashboard";  // /owner
-import OwnerBookings from "./pages/OwnerBookings";    // /owner/bookings
+import OwnerDashboard from "./pages/OwnerDashboard";
+import OwnerBookings from "./pages/OwnerBookings";
+import OwnerReviews from "./pages/OwnerReviews";
+import OwnerComplaints from "./pages/OwnerComplaints";
+import OwnerAnalytics from "./pages/OwnerAnalytics";
 
 import HomestayDetail from "./pages/HomestayDetail";
+import MyBookings from "./pages/MyBookings";
+import BookingCart from "./pages/BookingCart";
+
 
 export default function App() {
   return (
     <Routes>
       {/* ===== Public ===== */}
-      <Route path="/" element={<Login />} />
+      <Route path="/" element={<HomeCustomer />} />
+
+      {/* ✅ Alias cho VNPay Return */}
+      <Route path="/homecustomer" element={<HomeCustomer />} />
+
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
-
-      {/* Chi tiết homestay: public */}
       <Route path="/homestays/:id" element={<HomestayDetail />} />
+      <Route path="/customer" element={<Navigate to="/" replace />} />
+      <Route path="/vnpay-return" element={<HomeCustomer />} />
 
-      {/* ===== Private (cần đăng nhập) ===== */}
+
+      {/* ===== Private ===== */}
       <Route element={<ProtectedRoute />}>
-        {/* Admin */}
         <Route element={<RoleRoute allow={["admin"]} />}>
           <Route path="/admin" element={<HomeAdmin />} />
           <Route path="/admin/users" element={<AdminUsers />} />
-          {/* ✅ THÊM đường dẫn quản lý homestay cho admin */}
           <Route path="/admin/homestays" element={<AdminHomestays />} />
+          <Route path="/admin/promotions" element={<AdminPromotions />} />
+          <Route path="/admin/reviews" element={<AdminReviews />} />
+          <Route path="/admin/complaints" element={<AdminComplaints />} />
+          <Route path="/admin/revenue" element={<AdminRevenue />} />
+
         </Route>
 
-        {/* Owner */}
         <Route element={<RoleRoute allow={["owner"]} />}>
           <Route path="/owner" element={<OwnerDashboard />} />
           <Route path="/owner/homestays" element={<HomeOwner />} />
           <Route path="/owner/bookings" element={<OwnerBookings />} />
+          <Route path="/owner/reviews" element={<OwnerReviews />} />
+          <Route path="/owner/complaints" element={<OwnerComplaints />} />
+          <Route path="/owner/analytics" element={<OwnerAnalytics />} />
         </Route>
 
-        {/* Customer */}
         <Route element={<RoleRoute allow={["customer"]} />}>
-          <Route path="/customer" element={<HomeCustomer />} />
+          <Route path="/my-bookings" element={<MyBookings />} />
+          <Route path="/cart" element={<BookingCart />} />
         </Route>
       </Route>
 
-      {/* 404 */}
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

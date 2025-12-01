@@ -1,37 +1,46 @@
-const paymentService = require('../services/payment.service');
-const JSend = require('../jsend');
-const ApiError = require('../api-error');
+// src/controllers/payment.controller.js
+const paymentService = require("../services/payment.service");
 
-async function createPayment(req, res) {
+async function createCheckout(req, res) {
     try {
-        const payment = await paymentService.createPayment(req, req.body);
-        return res.status(201).json(JSend.success({ payment }, 'Payment created'));
-    } catch (error) {
-        const status = error instanceof ApiError ? error.statusCode : 400;
-        return res.status(status).json(JSend.fail(error.message || 'Create payment failed'));
+        const data = await paymentService.createCheckout(req, req.body);
+        return res.json(data);
+    } catch (err) {
+        console.error("[PAYMENTS] createCheckout error:", err);
+        return res.status(400).json({ message: err.message || "Create checkout failed" });
     }
 }
 
-async function listPaymentsByBooking(req, res) {
+async function getStatus(req, res) {
     try {
-        const { bookingId } = req.params;
-        const payments = await paymentService.listPaymentsByBooking(req, bookingId);
-        return res.json(JSend.success({ payments }));
-    } catch (error) {
-        const status = error instanceof ApiError ? error.statusCode : 400;
-        return res.status(status).json(JSend.fail(error.message || 'Cannot list payments'));
+        const bookingId = Number(req.params.bookingId);
+        const data = await paymentService.getStatus(bookingId);
+        return res.json(data);
+    } catch (err) {
+        console.error("[PAYMENTS] getStatus error:", err);
+        return res.status(400).json({ message: err.message || "Get status failed" });
     }
 }
 
-async function updatePaymentStatus(req, res) {
+async function vnpayReturn(req, res) {
     try {
-        const { id } = req.params;
-        await paymentService.updatePaymentStatus(req, id, req.body.status);
-        return res.json(JSend.success({}, 'Payment status updated'));
-    } catch (error) {
-        const status = error instanceof ApiError ? error.statusCode : 400;
-        return res.status(status).json(JSend.fail(error.message || 'Update payment status failed'));
+        const html = await paymentService.handleVnpayReturn(req.query);
+        res.setHeader("Content-Type", "text/html; charset=utf-8");
+        return res.send(html);
+    } catch (err) {
+        console.error("[PAYMENTS] vnpayReturn error:", err);
+        return res.status(400).send(err.message || "vnpayReturn failed");
     }
 }
 
-module.exports = { createPayment, listPaymentsByBooking, updatePaymentStatus };
+async function vnpayIpn(req, res) {
+    try {
+        const json = await paymentService.handleVnpayIpn(req.query);
+        return res.json(json);
+    } catch (err) {
+        console.error("[PAYMENTS] vnpayIpn error:", err);
+        return res.json({ RspCode: "99", Message: "Unknown error" });
+    }
+}
+
+module.exports = { createCheckout, getStatus, vnpayReturn, vnpayIpn };

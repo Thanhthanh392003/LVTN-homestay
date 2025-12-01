@@ -1,73 +1,64 @@
 // src/services/homestays.js
-import axios from "axios";
+import api from "../lib/axios";
 
-const buildBase = () => {
-    const envBase = import.meta.env.VITE_API_BASE;
-    if (envBase) return envBase.replace(/\/+$/, "");
-    const { protocol, hostname, port } = window.location;
-    const isVite = hostname === "localhost" && port === "5173";
-    return isVite ? `${protocol}//${hostname}:3000/api` : "/api";
-};
-
-const publicBase = () => {
-    const env = import.meta.env.VITE_PUBLIC_BASE || import.meta.env.VITE_ASSET_BASE;
-    if (env) return env.replace(/\/+$/, "");
-    const { protocol, hostname, port } = window.location;
-    const isVite = hostname === "localhost" && port === "5173";
-    return isVite ? `${protocol}//${hostname}:3000` : "";
-};
+const BASE = (api?.defaults?.baseURL || import.meta.env.VITE_API_BASE || "http://localhost:3000")
+    .replace(/\/+$/, "");
+const withCreds = { withCredentials: true };
+const take = (res) => res?.data ?? res;
 
 export const toPublicUrl = (p) => {
     if (!p) return "";
     if (/^https?:\/\//i.test(p)) return p;
-    return `${publicBase()}${p.startsWith("/") ? p : `/${p}`}`;
+    return `${BASE}${p.startsWith("/") ? "" : "/"}${p}`;
 };
 
-const take = (res) => res?.data?.data ?? res?.data ?? res;
-const http = axios.create({ withCredentials: true });
-
 export const homestaysApi = {
-    // ========= PUBLIC =========
     async listPublic() {
-        const base = buildBase();
-        const res = await http.get(`${base}/homestays`);
+        const res = await api.get("/api/homestays", withCreds);
         return take(res);
     },
     async search(params = {}) {
-        const base = buildBase();
         try {
-            const res = await http.get(`${base}/homestays/search`, { params });
+            const res = await api.get("/api/homestays/search", { ...withCreds, params });
             return take(res);
         } catch {
-            const res = await http.get(`${base}/homestays`, { params });
+            const res = await api.get("/api/homestays", { ...withCreds, params });
             return take(res);
         }
     },
     async getById(id) {
-        const base = buildBase();
-        const res = await http.get(`${base}/homestays/${id}`);
-        return res?.data?.data?.homestay ?? take(res);
+        const res = await api.get(`/api/homestays/${id}`, withCreds);
+        return res?.data?.homestay ?? res?.data ?? res;
     },
     async getImagesPublic(id) {
-        const base = buildBase();
-        const res = await http.get(`${base}/homestays/${id}/images-public`);
-        const images = res?.data?.images ?? [];
+        const res = await api.get(`/api/homestays/${id}/images-public`, withCreds);
+        const images = res?.images ?? res?.data?.images ?? [];
         return images.map((it) => ({ ...it, Image_url: toPublicUrl(it.Image_url) }));
     },
+    async getBlockedDates(id, params = {}) {
+        const res = await api.get(`/api/homestays/${id}/blocked-dates`, { ...withCreds, params });
+        return res?.data ?? res ?? [];
+    },
+    async getOwnerCalendar(id, params = {}) {
+        const res = await api.get(`/api/homestays/${id}/calendar`, { ...withCreds, params });
+        return res?.data ?? res ?? [];
+    },
 
-    // ========= OWNER =========
+    // Owner
+
+
     async myList() {
-        const base = buildBase();
-        const res = await http.get(`${base}/homestays/owner/mine`);
+        const res = await api
+            .get("/api/homestays/owner/mine", withCreds)
+            .catch(async () => await api.get("/api/homestays/mine", withCreds));
         return take(res);
     },
     async create(payload) {
-        const base = buildBase();
-        const res = await http.post(`${base}/homestays`, payload);
+        const res = await api.post("/api/homestays", payload, withCreds);
         return take(res);
     },
     async update(id, payload) {
-        const base = buildBase();
+        // Giữ lại “attempts” cũ để tương thích nhiều BE
         const snake = {
             h_name: payload.H_Name ?? payload.h_name ?? payload.name,
             h_address: payload.H_Address ?? payload.h_address ?? payload.address,
@@ -75,25 +66,31 @@ export const homestaysApi = {
             h_description: payload.H_Description ?? payload.h_description ?? payload.description,
             price_per_day: payload.Price_per_day ?? payload.price_per_day,
             max_guests: payload.Max_guests ?? payload.max_guests,
+            living_rooms: payload.Living_rooms ?? payload.living_rooms,
+            kitchens: payload.Kitchens ?? payload.kitchens,
+            bedrooms: payload.Bedrooms ?? payload.bedrooms,
+            bathrooms: payload.Bathrooms ?? payload.bathrooms,
             status: payload.Status ?? payload.status,
             u_id: payload.U_ID ?? payload.u_id,
+            promotion_ids: payload.Promotion_ids ?? payload.promotion_ids,
+            promotion_codes: payload.Promotion_codes ?? payload.promotion_codes,
         };
         const attempts = [
-            { m: "put", url: `${base}/homestays/${id}`, body: payload },
-            { m: "put", url: `${base}/homestays/update/${id}`, body: payload },
-            { m: "post", url: `${base}/homestays/update/${id}`, body: payload },
-            { m: "post", url: `${base}/homestays/update`, body: { H_ID: id, ...payload } },
-            { m: "put", url: `${base}/homestay/${id}`, body: payload },
-            { m: "put", url: `${base}/homestays/${id}`, body: snake },
-            { m: "put", url: `${base}/homestays/update/${id}`, body: snake },
-            { m: "post", url: `${base}/homestays/update/${id}`, body: snake },
-            { m: "post", url: `${base}/homestays/update`, body: { h_id: id, ...snake } },
-            { m: "put", url: `${base}/homestay/${id}`, body: snake },
+            { m: "put", url: `/api/homestays/${id}`, body: payload },
+            { m: "put", url: `/api/homestays/update/${id}`, body: payload },
+            { m: "post", url: `/api/homestays/update/${id}`, body: payload },
+            { m: "post", url: `/api/homestays/update`, body: { H_ID: id, ...payload } },
+            { m: "put", url: `/api/homestay/${id}`, body: payload },
+            { m: "put", url: `/api/homestays/${id}`, body: snake },
+            { m: "put", url: `/api/homestays/update/${id}`, body: snake },
+            { m: "post", url: `/api/homestays/update/${id}`, body: snake },
+            { m: "post", url: `/api/homestays/update`, body: { h_id: id, ...snake } },
+            { m: "put", url: `/api/homestay/${id}`, body: snake },
         ];
         let lastErr;
         for (const a of attempts) {
             try {
-                const res = await http.request({ method: a.m, url: a.url, data: a.body });
+                const res = await api.request({ method: a.m, url: a.url, data: a.body, ...withCreds });
                 return take(res);
             } catch (e) {
                 lastErr = e;
@@ -104,62 +101,79 @@ export const homestaysApi = {
         throw lastErr;
     },
     async remove(id) {
-        const base = buildBase();
-        const res = await http.delete(`${base}/homestays/${id}`);
+        const res = await api.delete(`/api/homestays/${id}`, withCreds);
         return take(res);
     },
 
-    // ====== ẢNH ======
+    // Images (owner)
     async listImages(hId) {
-        const base = buildBase();
-        const res = await http.get(`${base}/homestays/${hId}/images`);
-        const images = res?.data?.images ?? res ?? [];
+        const res = await api.get(`/api/homestays/${hId}/images`, withCreds);
+        const images = res?.images ?? res ?? [];
         return images.map((it) => ({ ...it, Image_url: toPublicUrl(it.Image_url) }));
     },
-    async uploadImages(hId, files) {
-        const base = buildBase();
+    async uploadImages(hId, files = []) {
         const form = new FormData();
         files.forEach((f) => form.append("images", f));
-        const res = await http.post(`${base}/homestays/${hId}/images`, form, {
+        const res = await api.post(`/api/homestays/${hId}/images`, form, {
+            ...withCreds,
             headers: { "Content-Type": "multipart/form-data" },
         });
-        const images = res?.data?.images ?? res ?? [];
+        const images = res?.images ?? res ?? [];
         return images.map((it) => ({ ...it, Image_url: toPublicUrl(it.Image_url) }));
     },
     async setMainImage(hId, imageId) {
-        const base = buildBase();
-        const res = await http.patch(`${base}/homestays/${hId}/images/${imageId}/main`);
+        const res = await api.patch(`/api/homestays/${hId}/images/${imageId}/main`, null, withCreds);
         return take(res);
     },
     async deleteImage(hId, imageId) {
-        const base = buildBase();
-        const res = await http.delete(`${base}/homestays/${hId}/images/${imageId}`);
+        const res = await api.delete(`/api/homestays/${hId}/images/${imageId}`, withCreds);
         return take(res);
     },
 
-    // ========= ADMIN =========
+    // ==== 🔑 BULK set promotions for a homestay ====
+    async setPromotions(hId, promotion_ids = []) {
+        const res = await api.patch(`/api/homestays/${hId}/promotions`, { promotion_ids }, withCreds);
+        return take(res);
+    },
+
+    // Admin
     async adminList(params = {}) {
-        const base = buildBase();
-        const res = await http.get(`${base}/homestays/admin/homestays`, { params })
-            .catch(async () => await http.get(`${base}/admin/homestays`, { params }));
-        return res?.data?.data ?? res?.data ?? [];
+        const res = await api
+            .get("/api/homestays/admin/homestays", { ...withCreds, params })
+            .catch(async () => await api.get("/api/admin/homestays", { ...withCreds, params }));
+        return res?.data ?? res ?? [];
     },
     async adminApprove(id) {
-        const base = buildBase();
-        const res = await http.post(`${base}/homestays/admin/homestays/${id}/approve`)
-            .catch(async () => await http.post(`${base}/admin/homestays/${id}/approve`));
+        const res = await api
+            .post(`/api/homestays/admin/homestays/${id}/approve`, null, withCreds)
+            .catch(async () => await api.post(`/api/admin/homestays/${id}/approve`, null, withCreds));
         return take(res);
     },
     async adminReject(id) {
-        const base = buildBase();
-        const res = await http.post(`${base}/homestays/admin/homestays/${id}/reject`)
-            .catch(async () => await http.post(`${base}/admin/homestays/${id}/reject`));
+        const res = await api
+            .post(`/api/homestays/admin/homestays/${id}/reject`, null, withCreds)
+            .catch(async () => await api.post(`/api/admin/homestays/${id}/reject`, null, withCreds));
         return take(res);
     },
     async adminRemove(id) {
-        const base = buildBase();
-        const res = await http.delete(`${base}/homestays/admin/homestays/${id}`)
-            .catch(async () => await http.delete(`${base}/admin/homestays/${id}`));
+        const res = await api
+            .delete(`/api/homestays/admin/homestays/${id}`, withCreds)
+            .catch(async () => await api.delete(`/api/admin/homestays/${id}`, withCreds));
         return take(res);
     },
+
+    async adminBlock(id) {
+        const res = await api
+            .post(`/api/homestays/admin/homestays/${id}/block`, null, withCreds)
+            .catch(async () => await api.post(`/api/admin/homestays/${id}/block`, null, withCreds));
+        return take(res);
+    },
+
+    async adminUnblock(id) {
+        const res = await api
+            .post(`/api/homestays/admin/homestays/${id}/unblock`, null, withCreds)
+            .catch(async () => await api.post(`/api/admin/homestays/${id}/unblock`, null, withCreds));
+        return take(res);
+    },
+
 };

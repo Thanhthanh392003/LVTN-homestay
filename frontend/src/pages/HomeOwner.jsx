@@ -1,30 +1,86 @@
+// src/pages/HomeOwner.jsx
 import React from "react";
 import {
-    Layout, Row, Col, Card, Statistic, Table, Button, Space,
+    Layout, Row, Col, Card, Table, Button, Space,
     Modal, Form, Input, InputNumber, Tag, message, Popconfirm,
-    Upload, Drawer, List, Image, Badge, Empty, Typography, Divider, Tooltip
+    Upload, Drawer, List, Badge, Empty, Typography, Select, Tooltip
 } from "antd";
 import {
-    HomeOutlined, DollarOutlined, BookOutlined,
+    HomeOutlined,
     PlusOutlined, EditOutlined, DeleteOutlined,
-    PictureOutlined, UploadOutlined, StarFilled,
-    EnvironmentOutlined, NumberOutlined, FileTextOutlined, TagOutlined,
-    InfoCircleOutlined
+    PictureOutlined, UploadOutlined,
+    EnvironmentOutlined, InfoCircleOutlined,
+    GiftOutlined, PercentageOutlined, DollarOutlined
 } from "@ant-design/icons";
 import TopBar from "../components/TopBar";
 import OwnerAmenityRuleDrawer from "../components/OwnerAmenityRuleDrawer";
 import { useAuth } from "../context/AuthContext";
 import { homestaysApi, toPublicUrl } from "../services/homestays";
+import { promotionsApi } from "../services/promotions";
 
 const { Title, Text } = Typography;
+
+/* ───────── SmartImg & helpers ───────── */
+
+const NO_IMAGE_DATA_URL =
+    "data:image/svg+xml;utf8," +
+    encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400">
+  <rect width="100%" height="100%" fill="#f5f5f5"/>
+  <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle"
+    font-family="sans-serif" font-size="16" fill="#9ca3af">No image</text>
+</svg>`);
+
+function buildImgSrc(item) {
+    let url =
+        item?.url ?? item?.thumbUrl ?? item?.src ?? item?.path ?? item?.Image_url ??
+        (typeof item === "string" ? item : "");
+    if (!url) return "";
+    url = String(url).trim().replace(/\\/g, "/");
+    if (/^(https?:)?\/\//.test(url) || url.startsWith("data:") || url.startsWith("blob:")) return url;
+    url = url.replace(/^.*\/(uploads\/[^?#]+)$/i, "/$1");
+    url = url.replace(/^.*\/(public\/images\/[^?#]+)$/i, "/$1");
+    url = url.replace(/^.*\/(images\/[^?#]+)$/i, "/$1");
+    if (url.startsWith("/uploads/") || url.startsWith("/images/") || url.startsWith("/public/")) return url;
+    return `/uploads/${url}`;
+}
+
+function SmartImg({ src, alt = "", style = {}, ...rest }) {
+    const tried = React.useRef(0);
+    const [finalSrc, setFinalSrc] = React.useState(src || NO_IMAGE_DATA_URL);
+    React.useEffect(() => { tried.current = 0; setFinalSrc(src || NO_IMAGE_DATA_URL); }, [src]);
+    const onError = () => {
+        if (tried.current === 0 && src) {
+            tried.current = 1;
+            const file = (src.split("/").pop() || "").trim();
+            if (file) return setFinalSrc(`/images/${file}`);
+        }
+        setFinalSrc(NO_IMAGE_DATA_URL);
+    };
+    return (
+        <img
+            src={finalSrc}
+            alt={alt}
+            loading="lazy"
+            onError={onError}
+            style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 12, ...style }}
+            {...rest}
+        />
+    );
+}
+
+/* ───────── Utils ───────── */
+
+const safeErr = (e) => ({
+    message: e?.response?.data?.message || e?.message,
+    status: e?.response?.status,
+    data: e?.response?.data,
+});
 
 export default function HomeOwner() {
     const { user, logout } = useAuth();
 
-    const [kpi, setKpi] = React.useState({ homestays: 0, bookings: 0, revenue: 0 });
     const [loading, setLoading] = React.useState(false);
     const [rows, setRows] = React.useState([]);
-
     const [open, setOpen] = React.useState(false);
     const [editing, setEditing] = React.useState(null);
     const [form] = Form.useForm();
@@ -32,14 +88,15 @@ export default function HomeOwner() {
     const [imgOpen, setImgOpen] = React.useState(false);
     const [imgHomestay, setImgHomestay] = React.useState(null);
     const [images, setImages] = React.useState([]);
-    const [imgUploading, setImgUploading] = React.useState(false);
+    const [imgBusy, setImgBusy] = React.useState({ mainId: null, delId: null });
 
-    // Drawer Tiện nghi & Nội quy
     const [arOpen, setArOpen] = React.useState(false);
     const [arHomestay, setArHomestay] = React.useState(null);
-    const openAmenityRule = (row) => { setArHomestay(row); setArOpen(true); };
 
-    // ==== helper: load ảnh bìa (ảnh chính hoặc ảnh đầu tiên) ====
+    // Promotions
+    const [promoLoading, setPromoLoading] = React.useState(false);
+    const [promoOptions, setPromoOptions] = React.useState([]);
+
     const hydrateCovers = async (list) => {
         const withCovers = await Promise.all(
             list.map(async (h) => {
@@ -55,47 +112,203 @@ export default function HomeOwner() {
         return withCovers;
     };
 
-    // ===== load danh sách của owner =====
     const fetchMine = async () => {
         try {
             setLoading(true);
             const data = await homestaysApi.myList();
             const list = Array.isArray(data) ? data : data?.homestays || [];
-            setKpi((k) => ({ ...k, homestays: list.length }));
             const hydrated = await hydrateCovers(list);
             setRows(hydrated);
+            console.log("[owner] my homestays =", hydrated);
         } catch (e) {
-            console.error("[fetchMine error]", e);
-            message.error(e?.response?.data?.message || "Không tải được danh sách");
+            console.error("[owner] load my homestays error:", e);
+            message.error("Không tải được danh sách homestay");
         } finally {
             setLoading(false);
         }
     };
+    React.useEffect(() => { fetchMine(); }, [user]);
 
-    React.useEffect(() => { fetchMine(); /* eslint-disable-next-line */ }, [user]);
+    /* ───────── Promotions ───────── */
+    const loadActivePromotions = async () => {
+        console.groupCollapsed("[promotion] loadActivePromotions");
+        try {
+            setPromoLoading(true);
+            const res = await promotionsApi.list?.({ active: "1" });
+            const arr = (Array.isArray(res?.data?.data?.promotions) ? res.data.data.promotions :
+                Array.isArray(res?.data?.promotions) ? res.data.promotions :
+                    Array.isArray(res) ? res : [])
+                .map((p) => ({
+                    id: Number(p.Promotion_ID ?? p.P_ID ?? p.id),
+                    code: String(p.P_Code).trim(),
+                    name: p.P_Name,
+                    type: p.P_Type,
+                    discount: Number(p.Discount),
+                    start: p.Start_date || p.start_date || p.from_date,
+                    end: p.End_date || p.end_date || p.to_date,
+                    status: p.P_Status || p.status,
+                }))
+                .filter(x => Number.isFinite(x.id) && x.code);
 
-    // ===== CRUD =====
-    const onCreate = () => {
-        setEditing(null);
-        form.resetFields();
-        // ✅ mặc định pending (đợi admin duyệt)
-        form.setFieldsValue({ Status: "pending", Max_guests: 2 });
-        setOpen(true);
+            const seen = new Set(); const options = [];
+            for (const it of arr) { if (seen.has(it.code)) continue; seen.add(it.code); options.push(it); }
+            setPromoOptions(options);
+            console.table(options);
+
+            const allow = new Set(options.map(o => o.code));
+            const curCodes = form.getFieldValue("Promotion_codes") || [];
+            const filtered = (curCodes || []).filter(c => allow.has(c));
+            if (filtered.length !== curCodes.length) {
+                form.setFieldsValue({ Promotion_codes: filtered });
+            }
+        } catch (e) {
+            console.error("loadActivePromotions ERROR:", e?.response?.data || e);
+            setPromoOptions([]);
+        } finally {
+            setPromoLoading(false);
+            console.groupEnd();
+        }
     };
 
-    const onEdit = (r) => {
-        setEditing(r);
+    const loadHomestayPromotionsForEdit = async (row) => {
+        console.groupCollapsed("[promotion] loadHomestayPromotionsForEdit", { H_ID: row?.H_ID });
+        try {
+            let list = await promotionsApi.forHomestay(row.H_ID);
+            console.log("[promotion] forHomestay list =", list);
+
+            let ids = []; let codes = [];
+            if (Array.isArray(list) && list.length) {
+                ids = list.map((x) => Number(x.Promotion_ID ?? x.P_ID ?? x.id)).filter(Number.isFinite);
+                codes = list.map((x) => x.P_Code).filter(Boolean);
+            }
+            if (!ids.length && row?.Promotion_ids) ids = row.Promotion_ids;
+            if (!codes.length && row?.Promotion_codes) codes = row.Promotion_codes;
+
+            const allow = new Set((promoOptions || []).map(p => p.code));
+            codes = Array.from(new Set(codes.filter(c => allow.has(c))));
+            const idByCode = new Map(promoOptions.map(p => [p.code, p.id]));
+            if (!ids.length && codes.length) ids = codes.map(c => idByCode.get(c)).filter(Number.isFinite);
+
+            form.setFieldsValue({ Promotion_ids: ids, Promotion_codes: codes });
+            console.log("[promotion] set form =>", { ids, codes });
+        } catch (e) {
+            console.error("loadHomestayPromotionsForEdit error:", e?.response?.data || e);
+        } finally {
+            console.groupEnd();
+        }
+    };
+
+    const replaceAssignedPromotions = async (H_ID, selectedIds) => {
+        const ids = Array.from(new Set((selectedIds || []).map(Number).filter(n => Number.isInteger(n) && n > 0)));
+        console.groupCollapsed("[promotion] replaceAssigned", { H_ID, ids });
+        try {
+            const after = await promotionsApi.replaceAssigned(H_ID, ids);
+            const idsAfter = Array.from(new Set((after || []).map(
+                x => Number(x.Promotion_ID ?? x.P_ID ?? x.id)).filter(Number.isFinite)));
+            const codesAfter = Array.from(new Set((after || []).map(x => x.P_Code).filter(Boolean)));
+            form.setFieldsValue({ Promotion_ids: idsAfter, Promotion_codes: codesAfter });
+            console.log("[promotion] replaced, assigned AFTER =", after);
+            return { ok: true, idsAfter, codesAfter };
+        } catch (e) {
+            console.error("[promotion] replaceAssigned ERROR:", e?.response?.data || e);
+            throw e;
+        } finally {
+            console.groupEnd();
+        }
+    };
+
+    const onCreate = async () => {
+        setEditing(null);
+        form.resetFields();
         form.setFieldsValue({
-            H_Name: r.H_Name,
-            H_Address: r.H_Address,
-            H_City: r.H_City,
-            H_Description: r.H_Description,
-            Price_per_day: Number(r.Price_per_day),
-            Max_guests: Number(r.Max_guests ?? 2),
-            // ✅ hiển thị đúng trạng thái hiện tại, không cho owner đổi
-            Status: r.Status || "pending",
+            Status: "pending", Max_guests: 2,
+            Bedrooms: 1, Bathrooms: 1, Living_rooms: 1, Kitchens: 1,
+            Promotion_ids: [], Promotion_codes: []
         });
         setOpen(true);
+        await loadActivePromotions();
+        form.setFieldsValue({ Promotion_ids: [], Promotion_codes: [] });
+    };
+
+    const onEdit = async (r) => {
+        setEditing(r);
+        form.resetFields();
+        form.setFieldsValue({
+            H_Name: r.H_Name, H_Address: r.H_Address, H_City: r.H_City,
+            H_Description: r.H_Description, Price_per_day: Number(r.Price_per_day),
+            Max_guests: r.Max_guests ?? 2, Bedrooms: r.Bedrooms ?? 1, Bathrooms: r.Bathrooms ?? 1,
+            Living_rooms: r.Living_rooms ?? 1, Kitchens: r.Kitchens ?? 1,
+            Status: r.Status || "pending",
+            Promotion_ids: [], Promotion_codes: []
+        });
+        setOpen(true);
+        await loadActivePromotions();
+        await loadHomestayPromotionsForEdit(r);
+    };
+
+    const onFinish = async (v) => {
+        console.groupCollapsed("[promotion] onFinish submit");
+        const idByCode = new Map(promoOptions.map((p) => [p.code, p.id]));
+        console.table(promoOptions);
+
+        let selCodes = Array.isArray(v.Promotion_codes) ? v.Promotion_codes : [];
+        let selIds = Array.isArray(v.Promotion_ids) ? v.Promotion_ids : [];
+        selCodes = Array.from(new Set(selCodes));
+
+        console.log("[promotion] raw form selections =", { selCodes, selIds });
+
+        const unknownCodes = selCodes.filter(c => !idByCode.has(c));
+        if (unknownCodes.length) {
+            message.error(`Mã không hợp lệ hoặc không còn hiệu lực: ${unknownCodes.join(", ")}`);
+            console.error("[promotion] unknown codes in submit:", unknownCodes);
+            console.groupEnd();
+            return;
+        }
+
+        if (!selIds.length && selCodes.length)
+            selIds = selCodes.map((c) => idByCode.get(c)).filter((x) => Number.isFinite(x));
+        selIds = Array.from(new Set(selIds));
+        console.log("[promotion] normalized submit ids =", selIds);
+
+        const base = {
+            H_Name: v.H_Name?.trim(), H_Address: v.H_Address?.trim(), H_City: v.H_City?.trim(),
+            H_Description: v.H_Description?.trim(), Price_per_day: Number(v.Price_per_day || 0),
+            Max_guests: Number(v.Max_guests || 2), Bedrooms: Number(v.Bedrooms || 1),
+            Bathrooms: Number(v.Bathrooms || 1), Living_rooms: Number(v.Living_rooms || 1),
+            Kitchens: Number(v.Kitchens || 1), U_ID: user?.U_ID || user?.id,
+            Promotion_ids: selIds, Promotion_codes: selCodes,
+        };
+
+        try {
+            console.log("[promotion] SUBMIT base payload =", base);
+
+            if (editing?.H_ID) {
+                console.log("[promotion] update H_ID =", editing.H_ID);
+                await homestaysApi.update(editing.H_ID, base);
+                await replaceAssignedPromotions(editing.H_ID, selIds);
+                message.success("Đã cập nhật homestay & lưu mã khuyến mãi");
+            } else {
+                const created = await homestaysApi.create(base);
+                const newId =
+                    created?.H_ID || created?.id || created?.data?.H_ID || created?.data?.id ||
+                    created?.homestay?.H_ID || created?.homestay?.id ||
+                    created?.data?.homestay?.H_ID || created?.data?.homestay?.id;
+                if (!newId) throw new Error("Không xác định được ID homestay vừa tạo");
+
+                console.log("[promotion] created H_ID =", newId);
+                await replaceAssignedPromotions(newId, selIds);
+                message.success("Đã tạo homestay mới & gán mã khuyến mãi");
+            }
+
+            setOpen(false);
+            fetchMine();
+        } catch (e) {
+            const se = safeErr(e);
+            console.error("[promotion] onFinish error:", se);
+            message.error(se?.message || "Lưu thất bại");
+        } finally {
+            console.groupEnd();
+        }
     };
 
     const onRemove = async (r) => {
@@ -104,64 +317,11 @@ export default function HomeOwner() {
             message.success("Đã xoá");
             fetchMine();
         } catch (e) {
-            console.error("[onRemove error]", e);
-            message.error(e?.response?.data?.message || "Xoá thất bại");
+            console.error("[owner] remove homestay error:", safeErr(e));
+            message.error("Không thể xoá homestay");
         }
     };
 
-    // ===== Lưu (create / update) =====
-    const onFinish = async (values) => {
-        try {
-            const safePrice = Math.max(0, Math.min(Number(values.Price_per_day || 0), 999999999));
-            const base = {
-                H_Name: (values.H_Name || "").trim(),
-                H_Address: (values.H_Address || "").trim(),
-                H_City: (values.H_City || "").trim(),
-                H_Description: (values.H_Description ?? "").toString().trim(),
-                Price_per_day: safePrice,
-                Max_guests: Math.max(1, Number(values.Max_guests ?? 2)),
-                U_ID: Number(user?.U_ID ?? user?.id) || undefined,
-            };
-
-            let result;
-            if (editing?.H_ID) {
-                // ✅ Khi sửa: chủ nhà không thay được status → không gửi Status lên
-                result = await homestaysApi.update(editing.H_ID, base);
-            } else {
-                if (!base.U_ID) {
-                    message.error("Không xác định được U_ID/ID Owner. Hãy đăng nhập lại.");
-                    return;
-                }
-                // ✅ Khi tạo: ép Status='pending'
-                const payloadCreate = { ...base, Status: "pending" };
-                try { result = await homestaysApi.create(payloadCreate); }
-                catch {
-                    // fallback snake_case
-                    const payloadSnake = {
-                        h_name: base.H_Name,
-                        h_address: base.H_Address,
-                        h_city: base.H_City,
-                        h_description: base.H_Description,
-                        price_per_day: base.Price_per_day,
-                        max_guests: base.Max_guests,
-                        status: "pending",
-                        u_id: base.U_ID,
-                    };
-                    result = await homestaysApi.create(payloadSnake);
-                }
-            }
-
-            message.success(editing ? "Cập nhật thành công" : "Tạo thành công (đang chờ duyệt)");
-            setOpen(false);
-            setEditing(null);
-            fetchMine();
-        } catch (e) {
-            console.error("[onFinish error]", e);
-            message.error(e?.response?.data?.message || e?.message || "Lưu thất bại");
-        }
-    };
-
-    // ===== Quản lý ảnh =====
     const openImages = async (r) => {
         setImgHomestay(r);
         setImgOpen(true);
@@ -169,266 +329,357 @@ export default function HomeOwner() {
             const res = await homestaysApi.listImages(r.H_ID);
             setImages(res?.images || res || []);
         } catch (e) {
-            console.error("[openImages error]", e);
-            message.error(e?.response?.data?.message || "Không tải được ảnh");
+            console.error("[owner] load images error:", safeErr(e));
+            message.error("Không tải được ảnh");
         }
     };
 
-    const uploadMore = async ({ file, onSuccess, onError }) => {
-        try {
-            setImgUploading(true);
-            await homestaysApi.uploadImages(imgHomestay.H_ID, [file]);
-            const res = await homestaysApi.listImages(imgHomestay.H_ID);
-            setImages(res?.images || res || []);
-            onSuccess();
-            message.success("Đã thêm ảnh");
-            fetchMine();
-        } catch (e) {
-            console.error("[uploadMore error]", e);
-            onError(e);
-            message.error(e?.response?.data?.message || "Thêm ảnh thất bại");
-        } finally {
-            setImgUploading(false);
-        }
-    };
+    // Drawer tiện nghi
+    const openAmenityRule = (row) => { setArHomestay(row); setArOpen(true); };
 
-    const setMain = async (img) => {
-        try {
-            await homestaysApi.setMainImage(imgHomestay.H_ID, img.Image_ID);
-            const res = await homestaysApi.listImages(imgHomestay.H_ID);
-            setImages(res?.images || res || []);
-            message.success("Đã đặt ảnh chính");
-            fetchMine();
-        } catch (e) {
-            console.error("[setMain error]", e);
-            message.error(e?.response?.data?.message || "Không đặt được ảnh chính");
-        }
-    };
-
-    const deleteImg = async (img) => {
-        try {
-            await homestaysApi.deleteImage(imgHomestay.H_ID, img.Image_ID);
-            setImages((s) => s.filter((x) => x.Image_ID !== img.Image_ID));
-            message.success("Đã xoá ảnh");
-            fetchMine();
-        } catch (e) {
-            console.error("[deleteImg error]", e);
-            message.error(e?.response?.data?.message || "Xoá ảnh thất bại");
-        }
-    };
-
-    // mapping màu trạng thái
     const statusTag = (s = "") => {
-        const v = String(s).toLowerCase();
-        const color =
-            v === "active" ? "green" :
-                v === "pending" ? "gold" :
-                    v === "blocked" ? "purple" :
-                        v === "rejected" ? "volcano" : "default";
-        return <Tag color={color}>{s || "pending"}</Tag>;
+        const labelMap = {
+            active: "Đang hoạt động",
+            pending: "Chờ duyệt",
+            blocked: "Đã khóa",
+            rejected: "Từ chối"
+        };
+
+        const colorMap = {
+            active: "green",
+            pending: "gold",
+            blocked: "purple",
+            rejected: "volcano"
+        };
+
+        const key = s?.toLowerCase?.() || "pending";
+        return <Tag color={colorMap[key] || "default"}>{labelMap[key] || s}</Tag>;
     };
+
+    const formatDate = (v) => v ? new Date(v).toLocaleDateString("vi-VN") : "";
+
+    // ====== Ảnh: helpers đặt ảnh chính / gỡ ảnh / reload ======
+    const doReloadImages = async (hid) => {
+        try {
+            const list = await homestaysApi.listImages(hid);
+            setImages(list?.images || list || []);
+        } catch (e) {
+            console.error("[owner] reload images error:", e?.response?.data || e);
+        }
+    };
+
+    const setMainImage = async (img) => {
+        const hid = imgHomestay?.H_ID;
+        const iid = img?.Image_ID || img?.id;
+        if (!hid || !iid) return;
+        setImgBusy((s) => ({ ...s, mainId: iid }));
+        try {
+            await homestaysApi.setMainImage(hid, iid);
+            message.success("Đã đặt ảnh chính");
+            await doReloadImages(hid);
+        } catch (e) {
+            console.error("[owner] setMainImage error:", e?.response?.data || e);
+            message.error("Đặt ảnh chính thất bại");
+        } finally {
+            setImgBusy((s) => ({ ...s, mainId: null }));
+        }
+    };
+
+    // Fallback xoá ảnh (đa tên hàm + gọi thẳng endpoint)
+    const apiDeleteImage = async (hid, iid) => {
+        const api = homestaysApi || {};
+        if (typeof api.removeImage === "function") return api.removeImage(hid, iid);
+        if (typeof api.deleteImage === "function") return api.deleteImage(hid, iid);
+        if (api.images?.remove) return api.images.remove(hid, iid);
+        if (api.images?.delete) return api.images.delete(hid, iid);
+        const tryDelete = async (url) => {
+            const res = await fetch(url, { method: "DELETE", credentials: "include" });
+            if (!res.ok) throw new Error(`DELETE ${url} failed: ${res.status}`);
+            try { return await res.json(); } catch { return {}; }
+        };
+        try {
+            return await tryDelete(`/homestays/${hid}/images/${iid}`);
+        } catch {
+            return await tryDelete(`/api/homestays/${hid}/images/${iid}`);
+        }
+    };
+
+    const removeImage = async (img) => {
+        const hid = imgHomestay?.H_ID;
+        const iid = img?.Image_ID || img?.id;
+        if (!hid || !iid) return;
+        setImgBusy((s) => ({ ...s, delId: iid }));
+        try {
+            await apiDeleteImage(hid, iid);
+            message.success("Đã gỡ ảnh");
+            await doReloadImages(hid);
+        } catch (e) {
+            console.error("[owner] removeImage error:", e?.response?.data || e);
+            message.error("Gỡ ảnh thất bại");
+        } finally {
+            setImgBusy((s) => ({ ...s, delId: null }));
+        }
+    };
+
+    const columns = [
+        { title: "Tên homestay", dataIndex: "H_Name", render: (v) => <Text strong style={{ fontSize: 16, whiteSpace: "nowrap" }}>{v}</Text> },
+        { title: "Thành phố", dataIndex: "H_City" },
+        {
+            title: "Giá/ngày",
+            dataIndex: "Price_per_day",
+            align: "right",
+            render: (v) => <Text style={{ whiteSpace: "nowrap" }}>{Number(v).toLocaleString("vi-VN")} ₫</Text>,
+        },
+        { title: "Khách", dataIndex: "Max_guests", render: (v) => <Tag color="blue">{v}</Tag> },
+        { title: "Ngủ", dataIndex: "Bedrooms", render: (v) => <Tag color="purple">{v}</Tag> },
+        { title: "WC", dataIndex: "Bathrooms", render: (v) => <Tag color="volcano">{v}</Tag> },
+        { title: "Phòng khách", dataIndex: "Living_rooms", render: (v) => <Tag color="gold">{v}</Tag> },
+        { title: "Bếp", dataIndex: "Kitchens", render: (v) => <Tag color="green">{v}</Tag> },
+        { title: "Ngày tạo", dataIndex: "Created_at", render: (_, r) => formatDate(r.Created_at || r.created_at) },
+        { title: "Trạng thái", dataIndex: "Status", render: (s) => statusTag(s) },
+        {
+            title: "Thao tác",
+            fixed: "right",
+            render: (_, r) => (
+                <Space>
+                    <Button icon={<PictureOutlined />} onClick={() => openImages(r)}>Ảnh</Button>
+                    <Button onClick={() => setArHomestay(r) || setArOpen(true)}>Tiện nghi</Button>
+                    <Button icon={<EditOutlined />} onClick={() => onEdit(r)}>Sửa</Button>
+                    <Popconfirm title="Xoá homestay?" onConfirm={() => onRemove(r)}>
+                        <Button danger icon={<DeleteOutlined />}>Xoá</Button>
+                    </Popconfirm>
+                </Space>
+            ),
+        },
+    ];
 
     return (
-        <Layout style={{ minHeight: "100vh", background: "linear-gradient(180deg,#f0fff4,#f7fafc)" }}>
+        <Layout style={{ minHeight: "100vh", background: "linear-gradient(180deg,#ecfdf5,#f8fafc)" }}>
             <TopBar user={user} role="Owner" onLogout={logout} />
 
-            <Layout.Content style={{ padding: 24, maxWidth: 1200, margin: "0 auto" }}>
-                {/* KPI Cards */}
-                <Row gutter={[16, 16]}>
-                    <Col xs={24} md={8}>
-                        <Card bordered style={{ borderRadius: 16, background: "#e6fffb" }}>
-                            <Statistic title="Homestay của tôi" value={kpi.homestays} prefix={<HomeOutlined />} />
-                        </Card>
-                    </Col>
-                    <Col xs={24} md={8}>
-                        <Card bordered style={{ borderRadius: 16, background: "#fff7e6" }}>
-                            <Statistic title="Lượt đặt tháng này" value={kpi.bookings} prefix={<BookOutlined />} />
-                        </Card>
-                    </Col>
-                    <Col xs={24} md={8}>
-                        <Card bordered style={{ borderRadius: 16, background: "#f6ffed" }}>
-                            <Statistic title="Doanh thu tháng (ước tính)" value={kpi.revenue} suffix="₫" prefix={<DollarOutlined />} />
-                        </Card>
-                    </Col>
-                </Row>
-
+            <Layout.Content style={{ padding: 24, maxWidth: 1560, margin: "0 auto" }}>
                 <Card
-                    title={<Title level={4} style={{ margin: 0 }}>Quản lý Homestay</Title>}
-                    style={{ borderRadius: 16, marginTop: 16 }}
-                    extra={<Button type="primary" icon={<PlusOutlined />} onClick={onCreate}>Thêm homestay</Button>}
+                    bordered={false}
+                    style={{
+                        borderRadius: 18, marginBottom: 12,
+                        background: "linear-gradient(135deg,#e6f4ff 0%, #ecfdf5 60%, #ffffff 100%)",
+                        border: "1px solid #eef2ff", boxShadow: "0 10px 30px rgba(15, 23, 42, 0.06)",
+                    }}
+                    bodyStyle={{ padding: 16 }}
                 >
+                    <Space align="center" style={{ width: "100%", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+                        <Space align="center" size={12}>
+                            <div style={{ width: 44, height: 44, borderRadius: 12, background: "linear-gradient(135deg,#22c55e,#16a34a)", display: "grid", placeItems: "center", color: "#fff" }}>
+                                <HomeOutlined />
+                            </div>
+                            <div>
+                                <Title level={3} style={{ margin: 0 }}>Quản lý Homestay</Title>
+                                <Text type="secondary">Tổng số: <b>{rows.length}</b> homestay</Text>
+                            </div>
+                        </Space>
+
+                        <Button
+                            type="primary"
+                            icon={<PlusOutlined />}
+                            onClick={onCreate}
+                            style={{ background: "linear-gradient(135deg,#16a34a,#22c55e)", border: 0, borderRadius: 10, paddingInline: 16, height: 44, fontWeight: 600 }}
+                        >
+                            Thêm homestay
+                        </Button>
+                    </Space>
+                </Card>
+
+                <Card style={{ borderRadius: 18 }} bodyStyle={{ padding: 16 }}>
                     <Table
                         loading={loading}
                         rowKey="H_ID"
                         dataSource={rows}
-                        pagination={{ pageSize: 8 }}
-                        columns={[
-                            {
-                                title: "Ảnh bìa",
-                                width: 130,
-                                render: (_, r) =>
-                                    r._cover ? (
-                                        <Image
-                                            src={r._cover}
-                                            width={110}
-                                            height={74}
-                                            style={{ objectFit: "cover", borderRadius: 8, boxShadow: "0 2px 6px rgba(0,0,0,0.08)" }}
-                                            preview={false}
-                                        />
-                                    ) : (
-                                        <div style={{
-                                            width: 110, height: 74, borderRadius: 8, background: "#fafafa",
-                                            display: "flex", alignItems: "center", justifyContent: "center", border: "1px dashed #ddd"
-                                        }}>
-                                            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={false} />
-                                        </div>
-                                    )
-                            },
-                            { title: "Tên", dataIndex: "H_Name" },
-                            { title: "Địa chỉ", dataIndex: "H_Address" },
-                            { title: "Thành phố", dataIndex: "H_City", width: 130 },
-                            {
-                                title: "Giá/ngày",
-                                dataIndex: "Price_per_day",
-                                width: 130,
-                                render: (v) => (Number(v) || 0).toLocaleString("vi-VN") + " ₫",
-                            },
-                            { title: "Số khách tối đa", dataIndex: "Max_guests", width: 130 },
-                            {
-                                title: "Trạng thái",
-                                dataIndex: "Status",
-                                width: 130,
-                                render: (s) => statusTag(s),
-                            },
-                            {
-                                title: "Thao tác",
-                                width: 360,
-                                render: (_, r) => (
-                                    <Space wrap>
-                                        <Button icon={<PictureOutlined />} onClick={() => openImages(r)}>Ảnh</Button>
-                                        <Button onClick={() => openAmenityRule(r)}>Tiện nghi & Nội quy</Button>
-                                        <Button icon={<EditOutlined />} onClick={() => onEdit(r)}>Sửa</Button>
-                                        <Popconfirm title="Xoá homestay?" onConfirm={() => onRemove(r)}>
-                                            <Button danger icon={<DeleteOutlined />}>Xoá</Button>
-                                        </Popconfirm>
-                                    </Space>
-                                ),
-                            },
-                        ]}
+                        columns={columns}
+                        pagination={{ pageSize: 10, showSizeChanger: false }}
+                        size="large"
+                        style={{ fontSize: 15 }}
+                        tableLayout="auto"
+                        onRow={() => ({ style: { height: 60 } })}
+                        locale={{ emptyText: <Empty description="Chưa có homestay nào" /> }}
                     />
                 </Card>
 
-                {/* Modal tạo/sửa — giữ cấu trúc, chỉ chỉnh UI & Status */}
+                {/* Modal thêm/sửa */}
                 <Modal
-                    title={null}
                     open={open}
                     onOk={() => form.submit()}
                     onCancel={() => setOpen(false)}
                     okText={editing ? "Cập nhật" : "Tạo mới"}
-                    okButtonProps={{ loading: imgUploading }}
                     centered
                     destroyOnClose
-                    styles={{
-                        content: { borderRadius: 18, overflow: "hidden" },
-                        header: { display: "none" }
-                    }}
+                    styles={{ content: { borderRadius: 18 } }}
                 >
-                    <div
-                        style={{
-                            background: "linear-gradient(135deg,#f6ffed,#e6fffb)",
-                            padding: "16px 20px",
-                            borderBottom: "1px solid #f0f0f0"
-                        }}
-                    >
-                        <Title level={4} style={{ margin: 0 }}>
-                            {editing ? "Sửa homestay" : "Thêm homestay mới"}
-                        </Title>
-                        <Text type="secondary">
-                            {editing
-                                ? "Bạn không thể thay đổi trạng thái khi chỉnh sửa. Trạng thái sẽ do quản trị viên phê duyệt."
-                                : "Sau khi tạo, homestay sẽ ở trạng thái pending (đang chờ phê duyệt)."}
-                        </Text>
-                    </div>
+                    <Title level={4} style={{ marginTop: 6 }}>
+                        {editing ? "Sửa homestay" : "Thêm homestay mới"}
+                    </Title>
 
-                    <div style={{ padding: 16 }}>
-                        <Form form={form} layout="vertical" onFinish={onFinish} requiredMark="optional">
-                            {/* Hàng 1: Tên + Thành phố */}
-                            <Row gutter={16}>
-                                <Col xs={24} md={14}>
-                                    <Form.Item
-                                        name="H_Name"
-                                        label="Tên homestay"
-                                        rules={[{ required: true, message: "Nhập tên homestay" }]}
-                                        tooltip="Ví dụ: Cozy House, Fresh Stay..."
-                                    >
-                                        <Input size="large" placeholder="Cozy House" prefix={<HomeOutlined className="text-gray-400" />} />
-                                    </Form.Item>
-                                </Col>
-                                <Col xs={24} md={10}>
-                                    <Form.Item name="H_City" label="Thành phố" rules={[{ required: true, message: "Nhập thành phố" }]}>
-                                        <Input size="large" placeholder="Hà Nội / Đà Lạt / Đà Nẵng..." prefix={<EnvironmentOutlined className="text-gray-400" />} />
-                                    </Form.Item>
-                                </Col>
-                            </Row>
+                    <Form form={form} layout="vertical" onFinish={onFinish}>
+                        <Row gutter={16}>
+                            <Col xs={24} md={12}>
+                                <Form.Item name="H_Name" label="Tên homestay" rules={[{ required: true }]}>
+                                    <Input prefix={<HomeOutlined />} placeholder="VD: Mộc Homestay" />
+                                </Form.Item>
+                            </Col>
+                            <Col xs={24} md={12}>
+                                <Form.Item name="H_City" label="Thành phố" rules={[{ required: true }]}>
+                                    <Input prefix={<EnvironmentOutlined />} placeholder="VD: Đà Lạt" />
+                                </Form.Item>
+                            </Col>
+                        </Row>
 
-                            {/* Hàng 2: Địa chỉ */}
-                            <Row gutter={16}>
-                                <Col span={24}>
-                                    <Form.Item name="H_Address" label="Địa chỉ" rules={[{ required: true, message: "Nhập địa chỉ" }]}>
-                                        <Input size="large" placeholder="Số nhà, đường, phường/xã..." prefix={<NumberOutlined className="text-gray-400" />} />
-                                    </Form.Item>
-                                </Col>
-                            </Row>
+                        <Form.Item name="H_Address" label="Địa chỉ" rules={[{ required: true }]}>
+                            <Input placeholder="Số nhà, đường, phường/xã..." />
+                        </Form.Item>
 
-                            {/* Hàng 3: Giá + Số khách + Trạng thái (readonly) */}
-                            <Row gutter={16}>
-                                <Col xs={24} md={10}>
-                                    <Form.Item
-                                        name="Price_per_day"
-                                        label={<Space>Giá mỗi ngày<Tooltip title="Giá niêm yết cho 1 đêm lưu trú"><TagOutlined /></Tooltip></Space>}
-                                        rules={[{ required: true, message: "Nhập giá" }]}
-                                    >
-                                        <InputNumber size="large" min={0} max={999999999} style={{ width: "100%" }} placeholder="850000" addonAfter="₫ / đêm" />
-                                    </Form.Item>
-                                </Col>
-                                <Col xs={24} md={8}>
-                                    <Form.Item
-                                        name="Max_guests"
-                                        label="Số khách tối đa"
-                                        rules={[{ required: true, message: "Nhập số khách tối đa" }]}
-                                        initialValue={2}
-                                    >
-                                        <InputNumber size="large" min={1} max={50} style={{ width: "100%" }} addonAfter="khách" />
-                                    </Form.Item>
-                                </Col>
-                                <Col xs={24} md={6}>
-                                    {/* ✅ Status chỉ hiển thị/readonly */}
-                                    <Form.Item name="Status" label="Trạng thái" initialValue="pending">
-                                        <Input size="large" disabled prefix={<InfoCircleOutlined style={{ color: "#999" }} />} value="pending" placeholder="pending (đang chờ duyệt)" />
-                                    </Form.Item>
-                                </Col>
-                            </Row>
+                        <Row gutter={16}>
+                            <Col xs={24} md={12}>
+                                <Form.Item name="Price_per_day" label="Giá mỗi ngày" rules={[{ required: true }]}>
+                                    <InputNumber style={{ width: "100%" }} addonAfter="₫/đêm" />
+                                </Form.Item>
+                            </Col>
+                            <Col xs={24} md={12}>
+                                <Form.Item name="Max_guests" label="Số khách tối đa" initialValue={2}>
+                                    <InputNumber min={1} style={{ width: "100%" }} addonAfter="khách" />
+                                </Form.Item>
+                            </Col>
+                        </Row>
 
-                            {/* Hàng 4: Mô tả */}
-                            <Row gutter={16}>
-                                <Col span={24}>
-                                    <Form.Item name="H_Description" label="Mô tả">
-                                        <Input.TextArea autoSize={{ minRows: 3, maxRows: 6 }} showCount maxLength={500} placeholder="Mô tả ngắn gọn về không gian, tiện ích, điểm nổi bật..." prefix={<FileTextOutlined />} />
-                                    </Form.Item>
-                                </Col>
-                            </Row>
+                        <Row gutter={16}>
+                            <Col xs={24} md={12}>
+                                <Form.Item name="Bedrooms" label="Số phòng ngủ" initialValue={1}>
+                                    <InputNumber min={0} style={{ width: "100%" }} addonAfter="phòng" />
+                                </Form.Item>
+                            </Col>
+                            <Col xs={24} md={12}>
+                                <Form.Item name="Bathrooms" label="Số phòng tắm/WC" initialValue={1}>
+                                    <InputNumber min={0} style={{ width: "100%" }} addonAfter="phòng" />
+                                </Form.Item>
+                            </Col>
+                        </Row>
 
-                            <Divider style={{ margin: "6px 0 0" }} />
-                            <div style={{ color: "#999", fontSize: 12, marginTop: 8 }}>
-                                Mẹo: Sau khi tạo, hãy vào mục <b>Ảnh</b> để thêm ảnh bìa đẹp và đặt <b>Ảnh chính</b>.
-                            </div>
-                        </Form>
-                    </div>
+                        <Row gutter={16}>
+                            <Col xs={24} md={12}>
+                                <Form.Item name="Living_rooms" label="Số phòng khách" initialValue={1}>
+                                    <InputNumber min={0} style={{ width: "100%" }} addonAfter="phòng" />
+                                </Form.Item>
+                            </Col>
+                            <Col xs={24} md={12}>
+                                <Form.Item name="Kitchens" label="Số phòng bếp" initialValue={1}>
+                                    <InputNumber min={0} style={{ width: "100%" }} addonAfter="phòng" />
+                                </Form.Item>
+                            </Col>
+                        </Row>
+
+                        <Form.Item name="H_Description" label="Mô tả">
+                            <Input.TextArea rows={4} placeholder="Mô tả không gian, tiện nghi, lưu ý..." />
+                        </Form.Item>
+
+                        {/* Chọn mã khuyến mãi */}
+                        <Form.Item
+                            label={(
+                                <Space>
+                                    <GiftOutlined />
+                                    <span>Mã khuyến mãi áp dụng</span>
+                                    <Tooltip title="Chỉ hiện mã đang active. Khách sẽ được áp dụng khi thoả điều kiện.">
+                                        <InfoCircleOutlined />
+                                    </Tooltip>
+                                </Space>
+                            )}
+                        >
+                            <Form.Item name="Promotion_ids" noStyle>
+                                <Input hidden />
+                            </Form.Item>
+
+                            <Form.Item name="Promotion_codes" noStyle>
+                                <Select
+                                    mode="multiple"
+                                    allowClear
+                                    loading={promoLoading}
+                                    placeholder="Chọn một hoặc nhiều mã"
+                                    optionLabelProp="label"
+                                    options={promoOptions.map((p) => ({
+                                        key: String(p.id),
+                                        value: p.code,
+                                        label: p.code,
+                                        title: p.name,
+                                        p,
+                                    }))}
+                                    tagRender={(tagProps) => {
+                                        const p = promoOptions.find((x) => x.code === tagProps.label);
+                                        const color = p?.type === "percent" ? "geekblue" : "gold";
+                                        const icon = p?.type === "percent" ? <PercentageOutlined /> : <DollarOutlined />;
+                                        return (
+                                            <Tag color={color} closable={tagProps.closable} onClose={tagProps.onClose} style={{ borderRadius: 999, marginRight: 4 }}>
+                                                {icon} {tagProps.label}
+                                            </Tag>
+                                        );
+                                    }}
+                                    optionRender={(opt) => {
+                                        const p = opt.data.p;
+                                        const color = p?.type === "percent" ? "geekblue" : "gold";
+                                        const icon = p?.type === "percent" ? <PercentageOutlined /> : <DollarOutlined />;
+                                        const valText = p?.type === "percent" ? `${p?.discount}%` : `${Number(p?.discount || 0).toLocaleString("vi-VN")} ₫`;
+                                        return (
+                                            <Space>
+                                                <Tag color={color} style={{ borderRadius: 999 }}>{icon} {p?.code}</Tag>
+                                                <Text strong>{p?.name}</Text>
+                                                <Text type="secondary">• {valText}</Text>
+                                            </Space>
+                                        );
+                                    }}
+                                    onChange={(codes) => {
+                                        const idByCode = new Map(promoOptions.map(x => [x.code, x.id]));
+                                        const allow = new Set(promoOptions.map(x => x.code));
+
+                                        const safeCodes = (codes || []).filter(c => allow.has(c));
+                                        const removed = (codes || []).filter(c => !allow.has(c));
+
+                                        if (removed.length) {
+                                            message.warning(`Đã bỏ mã không hợp lệ: ${removed.join(", ")}`);
+                                        }
+
+                                        const ids = safeCodes.map(c => idByCode.get(c)).filter(Boolean);
+                                        console.log("[promotion] onChange codes->ids =", { codes, safeCodes, ids });
+
+                                        form.setFieldsValue({
+                                            Promotion_codes: [...new Set(safeCodes)],
+                                            Promotion_ids: [...new Set(ids)]
+                                        });
+                                    }}
+                                />
+                            </Form.Item>
+                        </Form.Item>
+                    </Form>
                 </Modal>
 
-                {/* Drawer quản lý ảnh */}
-                <Drawer title={`Ảnh: ${imgHomestay?.H_Name || ""}`} open={imgOpen} onClose={() => setImgOpen(false)} width={560} styles={{ body: { paddingBottom: 12 } }}>
-                    <Upload customRequest={uploadMore} showUploadList={false} accept=".jpg,.jpeg,.png,.gif,.webp">
+                {/* Drawer ảnh: upload + đặt ảnh chính + Xóa ảnh (nút cạnh nhau) */}
+                <Drawer
+                    title={`Ảnh: ${imgHomestay?.H_Name || ""}`}
+                    open={imgOpen}
+                    onClose={() => setImgOpen(false)}
+                    width={560}
+                >
+                    <Upload
+                        multiple
+                        showUploadList={false}
+                        customRequest={async ({ file, onSuccess, onError }) => {
+                            try {
+                                const res = await homestaysApi.uploadImages(imgHomestay.H_ID, [file]);
+                                message.success("Tải ảnh lên thành công");
+                                await doReloadImages(imgHomestay.H_ID);
+                                onSuccess?.(res);
+                            } catch (e) {
+                                console.error("[owner] upload image error:", e?.response?.data || e);
+                                message.error("Tải ảnh thất bại");
+                                onError?.(e);
+                            }
+                        }}
+                    >
                         <Button icon={<UploadOutlined />}>Thêm ảnh</Button>
                     </Upload>
 
@@ -436,28 +687,66 @@ export default function HomeOwner() {
                         style={{ marginTop: 16 }}
                         grid={{ gutter: 12, column: 2 }}
                         dataSource={images}
-                        locale={{ emptyText: "Chưa có ảnh" }}
-                        renderItem={(img) => (
-                            <List.Item key={img.Image_ID}>
-                                <Badge.Ribbon text={img.IsMain ? "Ảnh chính" : ""} color="gold">
-                                    <Card
-                                        size="small"
-                                        hoverable
-                                        cover={<Image src={toPublicUrl(img.Image_url)} style={{ height: 170, objectFit: "cover" }} preview />}
-                                        actions={[
-                                            <Button type="link" onClick={() => setMain(img)} disabled={!!img.IsMain} icon={<StarFilled />} key="main">Đặt chính</Button>,
-                                            <Button type="link" danger onClick={() => deleteImg(img)} icon={<DeleteOutlined />} key="del">Xoá</Button>,
-                                        ]}
-                                        style={{ borderRadius: 12 }}
-                                    />
-                                </Badge.Ribbon>
-                            </List.Item>
-                        )}
+                        renderItem={(img) => {
+                            const iid = img.Image_ID || img.id;
+                            const isMain = !!img.IsMain;
+                            const removing = imgBusy.delId === iid;
+                            const settingMain = imgBusy.mainId === iid;
+
+                            return (
+                                <List.Item key={iid}>
+                                    <Badge.Ribbon text={isMain ? "Ảnh chính" : ""} color="gold">
+                                        <Card
+                                            size="small"
+                                            hoverable
+                                            cover={
+                                                <SmartImg
+                                                    src={buildImgSrc(img)}
+                                                    alt={img.Image_name || img.name || "image"}
+                                                    style={{ height: 170, objectFit: "cover" }}
+                                                />
+                                            }
+                                            actions={[
+                                                <Button
+                                                    key="main"
+                                                    type="text"
+                                                    onClick={() => setMainImage(img)}
+                                                    disabled={isMain || settingMain}
+                                                    loading={settingMain}
+                                                >
+                                                    Đặt ảnh chính
+                                                </Button>,
+                                                <Popconfirm
+                                                    key="del"
+                                                    title="Xoá ảnh này?"
+                                                    okText="Xoá"
+                                                    cancelText="Hủy"
+                                                    onConfirm={() => removeImage(img)}
+                                                >
+                                                    <Button
+                                                        danger
+                                                        type="text"
+                                                        loading={removing}
+                                                        disabled={removing}
+                                                    >
+                                                        Xoá ảnh
+                                                    </Button>
+                                                </Popconfirm>,
+                                            ]}
+                                        />
+                                    </Badge.Ribbon>
+                                </List.Item>
+                            );
+                        }}
                     />
                 </Drawer>
 
-                {/* Drawer Tiện nghi & Nội quy */}
-                <OwnerAmenityRuleDrawer open={arOpen} onClose={() => setArOpen(false)} homestay={arHomestay} />
+                <OwnerAmenityRuleDrawer
+                    open={arOpen}
+                    onClose={() => setArOpen(false)}
+                    homestay={arHomestay}
+                    onSaved={() => { setArOpen(false); fetchMine(); }}
+                />
             </Layout.Content>
         </Layout>
     );

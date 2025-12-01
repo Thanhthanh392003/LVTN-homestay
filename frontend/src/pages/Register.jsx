@@ -1,6 +1,6 @@
 // src/pages/Register.jsx
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
     Row, Col, Card, Form, Input, Button, Segmented,
     Select, DatePicker, Typography, Progress, message,
@@ -22,6 +22,7 @@ const GREEN = {
 
 export default function Register() {
     const navigate = useNavigate();
+    const location = useLocation();
     const [loading, setLoading] = useState(false);
     const [pwd, setPwd] = useState("");
     const [form] = Form.useForm();
@@ -58,7 +59,13 @@ export default function Register() {
             await usersApi.register(payload);
 
             message.success("Tạo tài khoản thành công! Mời đăng nhập.");
-            navigate("/login");
+
+            // ✅ ĐIỂM KHÁC BIỆT: preserve redirectTo (nếu có) khi sang trang /login
+            const redirectTo = location.state?.redirectTo;
+            navigate("/login", {
+                state: redirectTo ? { redirectTo } : undefined,
+                replace: true,
+            });
         } catch (e) {
             const msg =
                 e?.response?.data?.message ||
@@ -165,7 +172,6 @@ export default function Register() {
                                 form={form}
                                 layout="vertical"
                                 onFinish={onFinish}
-                                requiredMark="optional"
                                 initialValues={{ role_id: 3, gender: "female" }}
                             >
                                 <Form.Item
@@ -184,8 +190,8 @@ export default function Register() {
                                             padding: 4,
                                         }}
                                         options={[
-                                            { label: "Chủ nhà (Owner)", value: 2 },
-                                            { label: "Khách (Customer)", value: 3 },
+                                            { label: "Chủ nhà", value: 2 },
+                                            { label: "Khách", value: 3 },
                                         ]}
                                     />
                                 </Form.Item>

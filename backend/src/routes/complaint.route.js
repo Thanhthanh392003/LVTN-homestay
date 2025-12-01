@@ -1,11 +1,26 @@
-const router = require('express').Router();
-const ctrl = require('../controllers/complaint.controller');
-const requireLogin = require('../middlewares/requireLogin');
-const requireRole = require('../middlewares/requireRole');
+// backend/src/routes/complaint.route.js
 
-router.post('/', requireLogin, requireRole(3, 1), ctrl.createComplaint);
-router.get('/mine', requireLogin, requireRole(3, 1), ctrl.listMyComplaints);
-router.get('/', requireLogin, requireRole(1, 2), ctrl.listComplaintsForOwner);
-router.patch('/:id/status', requireLogin, requireRole(1, 2), ctrl.updateComplaintStatus);
+const express = require("express");
+const router = express.Router();
+const controller = require("../controllers/complaint.controller");
+
+// Gửi khiếu nại / góp ý
+router.post("/", controller.createComplaint);
+
+// Lấy danh sách khiếu nại của người dùng đang đăng nhập
+router.get("/mine", controller.listMyComplaints);
+
+// Owner xem khiếu nại liên quan đến homestay của mình
+router.get("/owner", controller.listComplaintsForOwnerView);
+
+// Admin/Owner xem tất cả khiếu nại
+router.get("/", controller.listComplaintsForOwner);
+
+// Update trạng thái complaint
+router.patch("/:id/status", controller.updateComplaintStatus);
+
+// Admin gửi phản hồi khiếu nại
+router.post("/:id/reply", controller.replyToComplaint);
+
 
 module.exports = router;

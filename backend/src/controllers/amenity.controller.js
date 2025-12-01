@@ -102,3 +102,56 @@ exports.syncForHomestay = async (req, res) => {
         res.status(500).json({ message: "Cập nhật tiện nghi thất bại" });
     }
 };
+
+exports.setAmenitiesForHomestay = async (req, res) => {
+    const trx = await db.transaction();
+    try {
+        const H_ID = Number(req.params.id);
+        const amenities = Array.isArray(req.body?.amenities)
+            ? req.body.amenities.map(a => (a || "").trim())
+            : [];
+
+        if (!H_ID)
+            return res.status(400).json({ message: "Missing H_ID" });
+
+        if (!amenities.length)
+            return res.status(400).json({ message: "Amenities list empty" });
+
+        // Lấy tiện nghi hiện có trong DB
+        const existing = await trx("AMENITY")
+            .select("Amenity_ID", "Name")
+            .whereIn("Name", amenities);
+
+        // Map name -> id
+        const existMap = {};
+        existing.forEach(e => {
+            existMap[e.Name] = e.Amenity_ID;
+        });
+
+        // Tìm tiện nghi chưa có trong DB
+        const missing = amenities.filter(n => !existMap[n]);
+
+        // Tạo tiện nghi mới
+        for (const name of missing) {
+            const [newId] = await trx("AMENITY").insert({ Name: name });
+            existMap[name] = newId;
+        }
+
+        const amenityIds = Object.values(existMap);
+
+        // Xóa tiện nghi cũ
+        await trx("HOMESTAY_AMENITY").where({ H_ID }).del();
+
+        // Insert tiện nghi mới
+        const rows = amenityIds.map(aid => ({ H_ID, Amenity_ID: aid }));
+        await trx("HOMESTAY_AMENITY").insert(rows);
+
+        await trx.commit();
+        res.json({ status: "success", added: missing });
+
+    } catch (e) {
+        await trx.rollback();
+        console.error("[SET AMENITIES FULL ERROR]", e);
+        res.status(500).json({ message: "Không thể cập nhật tiện nghi" });
+    }
+};

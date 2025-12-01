@@ -15,29 +15,66 @@ import { usersApi } from "../services/users";
 
 const { Title } = Typography;
 
+// ============================
+// HÀM LỌC TÌM KIẾM CHÍNH XÁC
+// ============================
+function filterUsers(list, q) {
+    if (!q || !q.trim()) return list;
+    const keyword = q.trim().toLowerCase();
+
+    return list.filter((u) => {
+        const name = (u.fullname || "").toLowerCase();
+        const email = (u.email || "").toLowerCase();
+
+        const nameParts = name.split(" ");
+
+        return (
+            name.startsWith(keyword) ||
+            email.startsWith(keyword) ||
+            name.includes(keyword) ||
+            email.includes(keyword) ||
+            nameParts.some((p) => p.startsWith(keyword))
+        );
+    });
+}
+
 export default function AdminUsers() {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
 
-    const [roleTab, setRoleTab] = React.useState("customer"); // customer | owner
+    const [roleTab, setRoleTab] = React.useState("customer");
     const [q, setQ] = React.useState("");
     const [loading, setLoading] = React.useState(false);
     const [rows, setRows] = React.useState([]);
+    const [allUsers, setAllUsers] = React.useState([]); // lưu raw list
 
+    // ============================
+    // FETCH USER THEO ROLE
+    // ============================
     const fetchUsers = async () => {
         setLoading(true);
         try {
-            const list = await usersApi.adminList({ role: roleTab, q });
-            setRows(Array.isArray(list) ? list : []);
-        } catch (e) {
-            console.error(e);
-            message.error(e?.response?.data?.message || "Không tải được danh sách");
-            setRows([]);
+            const list = await usersApi.adminList({ role: roleTab });
+            setAllUsers(Array.isArray(list) ? list : []);
+            setRows(filterUsers(list, q)); // áp dụng filter ngay
         } finally {
             setLoading(false);
         }
     };
 
+    // khi đổi vai trò → load lại API
+    React.useEffect(() => {
+        fetchUsers();
+    }, [roleTab]);
+
+    // khi thay đổi từ khóa tìm kiếm → lọc FE
+    React.useEffect(() => {
+        setRows(filterUsers(allUsers, q));
+    }, [q, allUsers]);
+
+    // ============================
+    // ĐỔI TRẠNG THÁI
+    // ============================
     const toggleStatus = async (r) => {
         try {
             const next = r.status === "active" ? "suspended" : "active";
@@ -50,21 +87,28 @@ export default function AdminUsers() {
         }
     };
 
-    React.useEffect(() => {
-        fetchUsers();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [roleTab]);
-
-    // ---- ONLY UI (màu + icon + hiệu ứng) ----
-    const bg = {
-        minHeight: "100vh",
-        background:
-            "radial-gradient(900px 240px at 10% 0%, rgba(59,130,246,.10), transparent 60%), radial-gradient(900px 240px at 85% 0%, rgba(16,185,129,.10), transparent 60%), #f6fbff",
-    };
+    // ============================
+    // HÀM HỖ TRỢ UI
+    // ============================
     const roleColor = (v) =>
         v === "admin" ? "gold" : v === "owner" ? "geekblue" : "green";
+
+    const toVietnameseRole = (r) =>
+        r === "admin" ? "quản trị viên" :
+            r === "owner" ? "chủ nhà" : "khách hàng";
+
+    const toVietnameseStatus = (s) =>
+        s === "active" ? "đang hoạt động" :
+            s === "pending" ? "đang chờ" : "bị khóa";
+
     const statusDot = (s) =>
         s === "active" ? "green" : s === "pending" ? "gold" : "red";
+
+    const segmentedOptions = [
+        { label: <Space><UsergroupAddOutlined /> Khách hàng</Space>, value: "customer" },
+        { label: <Space><UserSwitchOutlined /> Chủ nhà</Space>, value: "owner" },
+    ];
+
     const initials = (name = "") => {
         const t = name.trim();
         if (!t) return "U";
@@ -72,44 +116,30 @@ export default function AdminUsers() {
         return (parts[0][0] + (parts[1]?.[0] || "")).toUpperCase();
     };
 
-    // Segmented với icon + hiệu ứng
-    const segmentedOptions = [
-        { label: <Space><UsergroupAddOutlined /> Khách hàng</Space>, value: "customer" },
-        { label: <Space><UserSwitchOutlined /> Chủ nhà</Space>, value: "owner" },
-    ];
-
-    // Button style gradient
-    const primaryGrad = {
-        background: "linear-gradient(135deg,#1677ff,#22c55e)",
-        borderColor: "transparent",
-        boxShadow: "0 10px 24px rgba(22,119,255,.25)",
+    const bg = {
+        minHeight: "100vh",
+        background:
+            "radial-gradient(900px 240px at 10% 0%, rgba(59,130,246,.10), transparent 60%), radial-gradient(900px 240px at 85% 0%, rgba(16,185,129,.10), transparent 60%), #f6fbff",
     };
 
     return (
         <Layout style={bg}>
-            <TopBar user={user} role="Admin" onLogout={logout} />
+            <TopBar user={user} role="Quản trị viên" onLogout={logout} />
 
             <Layout.Content style={{ padding: 24, maxWidth: 1100, margin: "0 auto" }}>
-                {/* Nút về bảng điều khiển — Affix dính trên cùng, có hiệu ứng hover */}
+
                 <Affix offsetTop={12}>
                     <div>
                         <Button
                             icon={<ArrowLeftOutlined />}
                             onClick={() => navigate("/admin")}
-                            style={{
-                                borderRadius: 10,
-                                padding: "6px 12px",
-                                transition: "all .2s ease",
-                            }}
-                            onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-1px)")}
-                            onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}
+                            style={{ borderRadius: 10, padding: "6px 12px" }}
                         >
                             Về bảng điều khiển
                         </Button>
                     </div>
                 </Affix>
 
-                {/* Header card với gradient & icon lớn */}
                 <Card
                     bordered={false}
                     style={{
@@ -117,13 +147,12 @@ export default function AdminUsers() {
                         marginTop: 12,
                         marginBottom: 12,
                         background: "linear-gradient(135deg,#ffffff,#f7fffb)",
-                        boxShadow: "0 18px 40px rgba(15,23,42,.08)",
                     }}
                     bodyStyle={{ padding: 16 }}
                 >
-                    <Row justify="space-between" align="middle" gutter={[16, 12]}>
+                    <Row justify="space-between" align="middle">
                         <Col flex="auto">
-                            <Space size={12} align="center" wrap>
+                            <Space size={12} align="center">
                                 <div
                                     style={{
                                         width: 44,
@@ -134,7 +163,6 @@ export default function AdminUsers() {
                                         color: "#fff",
                                         background:
                                             "linear-gradient(135deg,#1677ff,#22c55e)",
-                                        boxShadow: "0 12px 26px rgba(22,119,255,.25)",
                                     }}
                                 >
                                     <TeamOutlined />
@@ -144,6 +172,7 @@ export default function AdminUsers() {
                                 </Title>
                             </Space>
                         </Col>
+
                         <Col>
                             <Segmented
                                 options={segmentedOptions}
@@ -159,7 +188,6 @@ export default function AdminUsers() {
                     </Row>
                 </Card>
 
-                {/* Toolbar + Bảng */}
                 <Card style={{ borderRadius: 18 }}>
                     <Row justify="space-between" align="middle" style={{ marginBottom: 12 }}>
                         <Col>
@@ -167,30 +195,20 @@ export default function AdminUsers() {
                                 allowClear
                                 value={q}
                                 onChange={(e) => setQ(e.target.value)}
-                                onPressEnter={fetchUsers}
                                 placeholder="Tìm theo tên / email..."
-                                prefix={<SearchOutlined style={{ color: "#94a3b8" }} />}
-                                style={{
-                                    width: 360,
-                                    borderRadius: 12,
-                                }}
+                                prefix={<SearchOutlined />}
+                                style={{ width: 360, borderRadius: 12 }}
                             />
                         </Col>
+
                         <Col>
-                            <Space>
-                                <Button
-                                    icon={<ReloadOutlined />}
-                                    onClick={fetchUsers}
-                                    style={{
-                                        borderRadius: 10,
-                                        transition: "all .2s ease",
-                                    }}
-                                    onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-1px)")}
-                                    onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}
-                                >
-                                    Làm mới
-                                </Button>
-                            </Space>
+                            <Button
+                                icon={<ReloadOutlined />}
+                                onClick={fetchUsers}
+                                style={{ borderRadius: 10 }}
+                            >
+                                Làm mới
+                            </Button>
                         </Col>
                     </Row>
 
@@ -199,8 +217,7 @@ export default function AdminUsers() {
                         dataSource={rows}
                         loading={loading}
                         pagination={{ pageSize: 12 }}
-                        locale={{ emptyText: <Empty description="Chưa có dữ liệu (kiểm tra API /api/users)" /> }}
-                        rowClassName={() => "admin-users-row"}
+                        locale={{ emptyText: <Empty description="Chưa có dữ liệu" /> }}
                         columns={[
                             {
                                 title: "Người dùng",
@@ -210,19 +227,18 @@ export default function AdminUsers() {
                                         <Avatar
                                             style={{
                                                 background:
-                                                    r.role === "owner" ? "#2563eb" : r.role === "admin" ? "#f59e0b" : "#10b981",
-                                                boxShadow: "0 10px 22px rgba(0,0,0,.12)",
-                                                transition: "transform .15s ease",
+                                                    r.role === "owner" ? "#2563eb" :
+                                                        r.role === "admin" ? "#f59e0b" : "#10b981",
                                             }}
                                             icon={!v ? <UserOutlined /> : null}
-                                            onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-2px)")}
-                                            onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}
                                         >
                                             {v ? initials(v) : null}
                                         </Avatar>
                                         <div>
                                             <div style={{ fontWeight: 600 }}>{v || "—"}</div>
-                                            <div style={{ fontSize: 12, color: "#8c8c8c" }}>{r.username || ""}</div>
+                                            <div style={{ fontSize: 12, color: "#8c8c8c" }}>
+                                                {r.username || ""}
+                                            </div>
                                         </div>
                                     </Space>
                                 ),
@@ -238,16 +254,14 @@ export default function AdminUsers() {
                                         >
                                             <MailOutlined /> {v}
                                         </a>
-                                    ) : (
-                                        "—"
-                                    ),
+                                    ) : "—",
                             },
                             {
                                 title: "Vai trò",
                                 dataIndex: "role",
                                 render: (v) => (
                                     <Tag color={roleColor(v)} style={{ borderRadius: 999, fontWeight: 600 }}>
-                                        {v}
+                                        {toVietnameseRole(v)}
                                     </Tag>
                                 ),
                             },
@@ -259,10 +273,16 @@ export default function AdminUsers() {
                                         color={statusDot(s)}
                                         text={
                                             <Tag
-                                                color={s === "active" ? "green" : s === "pending" ? "gold" : "volcano"}
+                                                color={
+                                                    s === "active"
+                                                        ? "green"
+                                                        : s === "pending"
+                                                            ? "gold"
+                                                            : "volcano"
+                                                }
                                                 style={{ margin: 0, borderRadius: 999, fontWeight: 600 }}
                                             >
-                                                {s}
+                                                {toVietnameseStatus(s)}
                                             </Tag>
                                         }
                                     />
@@ -275,21 +295,15 @@ export default function AdminUsers() {
                                     const isActive = r.status === "active";
                                     return (
                                         <Space>
-                                            <Tooltip title={isActive ? "Khoá tài khoản" : "Mở khoá tài khoản"}>
+                                            <Tooltip title={isActive ? "Khóa tài khoản" : "Mở khóa tài khoản"}>
                                                 <Button
                                                     type={isActive ? "primary" : "default"}
                                                     danger={isActive}
                                                     icon={isActive ? <LockOutlined /> : <UnlockOutlined />}
                                                     onClick={() => toggleStatus(r)}
-                                                    style={{
-                                                        ...(isActive ? primaryGrad : {}),
-                                                        borderRadius: 10,
-                                                        transition: "all .2s ease",
-                                                    }}
-                                                    onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-1px)")}
-                                                    onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}
+                                                    style={{ borderRadius: 10 }}
                                                 >
-                                                    {isActive ? "Khoá" : "Mở khoá"}
+                                                    {isActive ? "Khóa" : "Mở khóa"}
                                                 </Button>
                                             </Tooltip>
                                         </Space>
@@ -300,14 +314,6 @@ export default function AdminUsers() {
                     />
                 </Card>
             </Layout.Content>
-
-            {/* Custom styles cho hover row (chỉ UI) */}
-            <style>{`
-        .admin-users-row:hover .ant-table-cell {
-          background: #f0f9ff !important;
-          transition: background .2s ease;
-        }
-      `}</style>
         </Layout>
     );
 }

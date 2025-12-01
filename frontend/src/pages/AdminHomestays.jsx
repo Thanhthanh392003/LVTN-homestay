@@ -1,4 +1,3 @@
-// src/pages/AdminHomestays.jsx
 import React from "react";
 import {
     Layout,
@@ -38,11 +37,18 @@ export default function AdminHomestays() {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
 
-    // ✅ Mặc định hiển thị TẤT CẢ để không bị bảng trống
-    const [statusTab, setStatusTab] = React.useState("all"); // all | pending | active | rejected | blocked
+    const [statusTab, setStatusTab] = React.useState("all");
     const [q, setQ] = React.useState("");
     const [loading, setLoading] = React.useState(false);
     const [rows, setRows] = React.useState([]);
+
+    // 🌈 BACKGROUND GRADIENT ĐẸP
+    const bg = {
+        minHeight: "100vh",
+        background:
+            "linear-gradient(165deg, #f0fdfa 0%, #f0f9ff 40%, #eff6ff 100%)",
+        paddingBottom: 50,
+    };
 
     const fetchList = async () => {
         setLoading(true);
@@ -51,21 +57,17 @@ export default function AdminHomestays() {
                 status: statusTab === "all" ? undefined : statusTab,
                 q: q || undefined,
             });
-            // service có thể trả {data: [...] } hoặc array; chuẩn hoá nhẹ
+
             const list = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
             const normalized = list.map((it) => ({
                 ...it,
                 Image_url: toPublicUrl(it.Image_url || it.main_image || it.cover),
             }));
+
             setRows(normalized);
         } catch (e) {
             console.error("[adminList error]", e);
-            const code = e?.response?.status;
-            if (code === 401) {
-                message.warning("Bạn cần đăng nhập lại để xem dữ liệu.");
-            } else {
-                message.error(e?.response?.data?.message || "Không tải được danh sách homestay");
-            }
+            message.error("Không tải được danh sách homestay");
             setRows([]);
         } finally {
             setLoading(false);
@@ -77,9 +79,8 @@ export default function AdminHomestays() {
             await homestaysApi.adminApprove(r.H_ID ?? r.id);
             message.success("Đã phê duyệt");
             fetchList();
-        } catch (e) {
-            console.error(e);
-            message.error(e?.response?.data?.message || "Phê duyệt thất bại");
+        } catch {
+            message.error("Phê duyệt thất bại");
         }
     };
 
@@ -88,92 +89,183 @@ export default function AdminHomestays() {
             await homestaysApi.adminReject(r.H_ID ?? r.id);
             message.success("Đã từ chối");
             fetchList();
-        } catch (e) {
-            console.error(e);
-            message.error(e?.response?.data?.message || "Từ chối thất bại");
+        } catch {
+            message.error("Từ chối thất bại");
         }
     };
 
     const removeHs = async (r) => {
         try {
             await homestaysApi.adminRemove(r.H_ID ?? r.id);
-            message.success("Đã xoá homestay khỏi hệ thống");
+            message.success("Đã xoá homestay");
             fetchList();
-        } catch (e) {
-            console.error(e);
-            message.error(e?.response?.data?.message || "Xoá thất bại");
+        } catch {
+            message.error("Xoá thất bại");
         }
     };
 
-    // load lần đầu & khi đổi tab
+    const blockHs = async (r) => {
+        try {
+            await homestaysApi.adminBlock(r.H_ID ?? r.id);
+            message.success("Đã chặn homestay");
+            fetchList();
+        } catch {
+            message.error("Chặn thất bại");
+        }
+    };
+
+    const unblockHs = async (r) => {
+        try {
+            await homestaysApi.adminUnblock(r.H_ID ?? r.id);
+            message.success("Đã bỏ chặn");
+            fetchList();
+        } catch {
+            message.error("Bỏ chặn thất bại");
+        }
+    };
+
     React.useEffect(() => {
         fetchList();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [statusTab]);
 
-    const bg = {
-        minHeight: "100vh",
-        background:
-            "radial-gradient(900px 240px at 10% 0%, rgba(16,185,129,.10), transparent 60%), radial-gradient(900px 240px at 85% 0%, rgba(59,130,246,.10), transparent 60%), #f6fbff",
+    const mapStatusVI = (s) => {
+        switch (s) {
+            case "pending":
+                return "Chờ phê duyệt";
+            case "active":
+                return "Đã phê duyệt";
+            case "rejected":
+                return "Bị từ chối";
+            case "blocked":
+                return "Bị chặn";
+            default:
+                return s;
+        }
+    };
+
+    // 🌈 status pastel đẹp mắt
+    const statusColors = {
+        pending: "gold",
+        active: "green",
+        rejected: "volcano",
+        blocked: "purple",
     };
 
     const columns = [
         {
             title: "Ảnh",
             dataIndex: "Image_url",
-            width: 110,
+            width: 120,
             render: (v) =>
                 v ? (
-                    <Image
-                        src={v}
-                        width={84}
-                        height={60}
-                        style={{ objectFit: "cover", borderRadius: 8 }}
-                        preview={false}
-                    />
+                    <div style={{ borderRadius: 10, overflow: "hidden", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}>
+                        <Image
+                            src={v}
+                            width={100}
+                            height={70}
+                            style={{ objectFit: "cover" }}
+                            preview={false}
+                        />
+                    </div>
                 ) : null,
         },
-        { title: "Tên", dataIndex: "H_Name", render: (v, r) => v || r.name },
-        { title: "Thành phố", dataIndex: "H_City", width: 140, render: (v, r) => v || r.city },
-        { title: "Chủ nhà", dataIndex: "OwnerEmail", render: (v, r) => v || r.owner || r.owner_email },
+        { title: "Tên", dataIndex: "H_Name" },
+        { title: "Thành phố", dataIndex: "H_City" },
+        {
+            title: "Chủ nhà",
+            dataIndex: "OwnerEmail",
+            render: (v, r) => v || r.owner_email,
+        },
         {
             title: "Trạng thái",
             dataIndex: "Status",
-            width: 140,
             render: (v, r) => {
-                const s = (v || r.status || "pending").toLowerCase();
-                const color =
-                    s === "active" ? "green" : s === "pending" ? "gold" : s === "blocked" ? "purple" : "volcano";
-                return <Tag color={color}>{s}</Tag>;
+                const s = (v || r.status || "").toLowerCase();
+                return (
+                    <Tag
+                        color={statusColors[s]}
+                        style={{ padding: "4px 10px", borderRadius: 8, fontWeight: 500 }}
+                    >
+                        {mapStatusVI(s)}
+                    </Tag>
+                );
             },
         },
         {
             title: "Thao tác",
-            width: 320,
             render: (_, r) => {
-                const s = (r.Status || r.status || "").toLowerCase();
+                const s = (r.Status || r.status).toLowerCase();
+                const isActive = s === "active";
+                const isRejected = s === "rejected";
+                const isBlocked = s === "blocked";
+
                 return (
-                    <Space wrap>
-                        <Tooltip title="Phê duyệt">
-                            <Button
-                                type="primary"
-                                icon={<CheckOutlined />}
-                                onClick={() => approve(r)}
-                                disabled={s === "active"}
+                    <Space wrap size="small">
+
+                        {/* Nút đẹp + hover scale */}
+                        <Button
+                            type="primary"
+                            icon={<CheckOutlined />}
+                            onClick={() => approve(r)}
+                            disabled={isActive || isBlocked}
+                            style={{ borderRadius: 8, transform: "scale(1)", transition: "0.2s" }}
+                            onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.05)")}
+                            onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
+                        >
+                            Phê duyệt
+                        </Button>
+
+                        <Button
+                            icon={<StopOutlined />}
+                            danger
+                            disabled={isActive || isRejected || isBlocked}
+                            onClick={() => reject(r)}
+                            style={{ borderRadius: 8, transform: "scale(1)", transition: "0.2s" }}
+                            onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.05)")}
+                            onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
+                        >
+                            Từ chối
+                        </Button>
+
+                        {!isBlocked && (
+                            <Popconfirm
+                                title="Chặn homestay này?"
+                                onConfirm={() => blockHs(r)}
                             >
-                                Phê duyệt
-                            </Button>
-                        </Tooltip>
-                        <Tooltip title="Từ chối">
-                            <Button icon={<StopOutlined />} danger onClick={() => reject(r)} disabled={s === "rejected"}>
-                                Từ chối
-                            </Button>
-                        </Tooltip>
-                        <Popconfirm title="Xoá homestay này khỏi hệ thống?" onConfirm={() => removeHs(r)}>
-                            <Button danger icon={<DeleteOutlined />}>
+                                <Button
+                                    danger
+                                    type="dashed"
+                                    icon={<StopOutlined />}
+                                    style={{ borderRadius: 8 }}
+                                >
+                                    Chặn
+                                </Button>
+                            </Popconfirm>
+                        )}
+
+                        {isBlocked && (
+                            <Popconfirm
+                                title="Bỏ chặn homestay này?"
+                                onConfirm={() => unblockHs(r)}
+                            >
+                                <Button
+                                    type="primary"
+                                    style={{ borderRadius: 8 }}
+                                >
+                                    Bỏ chặn
+                                </Button>
+                            </Popconfirm>
+                        )}
+
+                        <Popconfirm
+                            title="Xoá homestay này?"
+                            onConfirm={() => removeHs(r)}
+                        >
+                            <Button danger icon={<DeleteOutlined />} style={{ borderRadius: 8 }}>
                                 Xoá
                             </Button>
                         </Popconfirm>
+
                     </Space>
                 );
             },
@@ -185,47 +277,42 @@ export default function AdminHomestays() {
             <TopBar user={user} role="Admin" onLogout={logout} />
 
             <Layout.Content style={{ padding: 24, maxWidth: 1100, margin: "0 auto" }}>
-                <div style={{ marginBottom: 12 }}>
-                    <Button icon={<ArrowLeftOutlined />} onClick={() => navigate("/admin")}>
-                        Về bảng điều khiển
-                    </Button>
-                </div>
 
-                <Card
-                    bordered={false}
+                {/* Nút quay lại */}
+                <Button
+                    icon={<ArrowLeftOutlined />}
+                    onClick={() => navigate("/admin")}
                     style={{
-                        borderRadius: 20,
-                        marginBottom: 12,
-                        background: "linear-gradient(135deg,#ffffff,#f7fffb)",
-                        boxShadow: "0 18px 40px rgba(15,23,42,.08)",
+                        marginBottom: 15,
+                        borderRadius: 8,
+                        paddingInline: 18,
+                        background: "#fff",
+                        boxShadow: "0 3px 9px rgba(0,0,0,0.05)",
                     }}
-                    bodyStyle={{ padding: 16 }}
                 >
-                    <Row justify="space-between" align="middle" gutter={[16, 12]}>
-                        <Col flex="auto">
-                            <Space size={12} align="center">
-                                <div
-                                    style={{
-                                        width: 44,
-                                        height: 44,
-                                        borderRadius: 12,
-                                        display: "grid",
-                                        placeItems: "center",
-                                        color: "#fff",
-                                        background: "linear-gradient(135deg,#22c55e,#1677ff)",
-                                    }}
-                                >
-                                    <HomeOutlined />
-                                </div>
-                                <Title level={3} style={{ margin: 0 }}>
-                                    Quản lý Homestay
-                                </Title>
-                            </Space>
+                    Về bảng điều khiển
+                </Button>
+
+                {/* CARD TITLE */}
+                <Card
+                    style={{
+                        marginBottom: 20,
+                        borderRadius: 22,
+                        background: "white",
+                        boxShadow: "0 10px 30px rgba(0,0,0,0.05)",
+                    }}
+                    bodyStyle={{ padding: 20 }}
+                >
+                    <Row justify="space-between" align="middle">
+                        <Col>
+                            <Title level={3} style={{ margin: 0, color: "#0f172a" }}>
+                                Quản lý Homestay
+                            </Title>
                         </Col>
                         <Col>
                             <Segmented
                                 options={[
-                                    { label: "Tất cả", value: "all" },        // ✅ đưa “Tất cả” lên đầu
+                                    { label: "Tất cả", value: "all" },
                                     { label: "Chờ phê duyệt", value: "pending" },
                                     { label: "Đã phê duyệt", value: "active" },
                                     { label: "Bị từ chối", value: "rejected" },
@@ -233,26 +320,50 @@ export default function AdminHomestays() {
                                 ]}
                                 value={statusTab}
                                 onChange={setStatusTab}
+                                style={{
+                                    padding: 5,
+                                    background: "#f8fafc",
+                                    borderRadius: 12,
+                                    boxShadow: "0 3px 10px rgba(0,0,0,0.05)",
+                                }}
                             />
                         </Col>
                     </Row>
                 </Card>
 
-                <Card style={{ borderRadius: 18 }}>
-                    <Row justify="space-between" align="middle" style={{ marginBottom: 12 }}>
+                {/* TABLE */}
+                <Card
+                    style={{ borderRadius: 18, boxShadow: "0 8px 25px rgba(0,0,0,0.04)" }}
+                    bodyStyle={{ padding: 20 }}
+                >
+                    {/* SEARCH */}
+                    <Row justify="space-between" style={{ marginBottom: 18 }}>
                         <Col>
                             <Input
                                 allowClear
+                                placeholder="Tìm theo tên / thành phố / email chủ nhà..."
                                 value={q}
                                 onChange={(e) => setQ(e.target.value)}
                                 onPressEnter={fetchList}
-                                placeholder="Tìm theo tên / thành phố / email chủ nhà..."
-                                prefix={<SearchOutlined style={{ color: "#94a3b8" }} />}
-                                style={{ width: 380, borderRadius: 12 }}
+                                prefix={<SearchOutlined />}
+                                style={{
+                                    width: 380,
+                                    borderRadius: 12,
+                                    padding: "6px 12px",
+                                    boxShadow: "0 2px 6px rgba(0,0,0,0.06)",
+                                }}
                             />
                         </Col>
                         <Col>
-                            <Button icon={<ReloadOutlined />} onClick={fetchList}>
+                            <Button
+                                icon={<ReloadOutlined />}
+                                onClick={fetchList}
+                                style={{
+                                    borderRadius: 10,
+                                    paddingInline: 16,
+                                    boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+                                }}
+                            >
                                 Làm mới
                             </Button>
                         </Col>
@@ -260,13 +371,17 @@ export default function AdminHomestays() {
 
                     <Table
                         rowKey={(r) => r.H_ID ?? r.id}
-                        dataSource={rows}
+                        columns={columns}
                         loading={loading}
+                        dataSource={rows}
                         pagination={{ pageSize: 10 }}
                         locale={{ emptyText: <Empty description="Chưa có homestay nào" /> }}
-                        columns={columns}
+                        style={{
+                            borderRadius: 12,
+                        }}
                     />
                 </Card>
+
             </Layout.Content>
         </Layout>
     );

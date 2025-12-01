@@ -2,36 +2,36 @@
 import React from "react";
 import { Layout, Space, Typography, Avatar, Dropdown, Button, Badge } from "antd";
 import {
-    UserOutlined,
-    LogoutOutlined,
-    SettingOutlined,
-    BellOutlined,
-    DownOutlined,
+  UserOutlined,
+  LogoutOutlined,
+  SettingOutlined,
+  BellOutlined,
+  DownOutlined,
 } from "@ant-design/icons";
 
 const { Header } = Layout;
 const { Text, Title } = Typography;
 
 export default function TopBar({ user, role = "Owner", onLogout, onUserClick }) {
-    const name = user?.U_Fullname || user?.full_name || user?.username || "User";
-    const initials = React.useMemo(() => {
-        const s = String(name).trim();
-        if (!s) return "U";
-        const parts = s.split(/\s+/);
-        const a = parts[0]?.[0] || "U";
-        const b = parts.length > 1 ? parts[parts.length - 1][0] : "";
-        return (a + b).toUpperCase();
-    }, [name]);
+  const name = user?.U_Fullname || user?.full_name || user?.username || "User";
+  const initials = React.useMemo(() => {
+    const s = String(name).trim();
+    if (!s) return "U";
+    const parts = s.split(/\s+/);
+    const a = parts[0]?.[0] || "U";
+    const b = parts.length > 1 ? parts[parts.length - 1][0] : "";
+    return (a + b).toUpperCase();
+  }, [name]);
 
-    const menuItems = [
-        { key: "profile", icon: <SettingOutlined />, label: "Sửa hồ sơ", onClick: () => onUserClick && onUserClick() },
-        { type: "divider" },
-        { key: "logout", icon: <LogoutOutlined />, label: "Đăng xuất", danger: true, onClick: () => onLogout && onLogout() },
-    ];
+  const menuItems = [
+    { key: "profile", icon: <SettingOutlined />, label: "Sửa hồ sơ", onClick: () => onUserClick && onUserClick() },
+    { type: "divider" },
+    { key: "logout", icon: <LogoutOutlined />, label: "Đăng xuất", danger: true, onClick: () => onLogout && onLogout() },
+  ];
 
-    return (
-        <>
-            <style>{`
+  return (
+    <>
+      <style>{`
         /* ===== Animations ===== */
         @keyframes gradientShift {
           0% { background-position: 0% 50%; }
@@ -115,40 +115,40 @@ export default function TopBar({ user, role = "Owner", onLogout, onUserClick }) 
         }
       `}</style>
 
-            <Header className="tb-wrap" style={{ height: 68, paddingInline: 16, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                {/* background blobs */}
-                <span className="tb-blob b1" />
-                <span className="tb-blob b2" />
+      <Header className="tb-wrap" style={{ height: 68, paddingInline: 16, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        {/* background blobs */}
+        <span className="tb-blob b1" />
+        <span className="tb-blob b2" />
 
-                {/* Left: logo + title */}
-                <Space size={12} align="center" style={{ zIndex: 1 }}>
-                    <div className="tb-logo">HS</div>
-                    <div style={{ lineHeight: 1 }}>
-                        <Title level={5} style={{ margin: 0 }}>Homestay Manager</Title>
-                        <Space size={8}>
-                            <Typography.Text type="secondary" style={{ fontSize: 12 }}>Bảng điều khiển</Typography.Text>
-                            <span className="tb-chip">{role}</span>
-                        </Space>
-                    </div>
-                </Space>
+        {/* Left: logo + title */}
+        <Space size={12} align="center" style={{ zIndex: 1 }}>
+          <div className="tb-logo">HS</div>
+          <div style={{ lineHeight: 1 }}>
+            <Title level={5} style={{ margin: 0 }}>Homestay Manager</Title>
+            <Space size={8}>
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}>Bảng điều khiển</Typography.Text>
+              <span className="tb-chip">{role}</span>
+            </Space>
+          </div>
+        </Space>
 
-                {/* Right: bell + avatar dropdown */}
-                <Space size={12} align="center" style={{ zIndex: 1 }}>
-                    <Button className="tb-bell" type="text" shape="circle" icon={<BellOutlined />} />
+        {/* Right: bell + avatar dropdown */}
+        <Space size={12} align="center" style={{ zIndex: 1 }}>
+          <Button className="tb-bell" type="text" shape="circle" icon={<BellOutlined />} />
 
-                    <Dropdown menu={{ items: menuItems }} trigger={["click"]} placement="bottomRight" arrow>
-                        <Space className="tb-pill">
-                            <span className="tb-avatarRing">
-                                <Avatar size={34} icon={<UserOutlined />}>
-                                    {initials}
-                                </Avatar>
-                            </span>
-                            <Text strong>{name}</Text>
-                            <DownOutlined style={{ fontSize: 10, opacity: .65 }} />
-                        </Space>
-                    </Dropdown>
-                </Space>
-            </Header>
-        </>
-    );
+          <Dropdown menu={{ items: menuItems }} trigger={["click"]} placement="bottomRight" arrow>
+            <Space className="tb-pill">
+              <span className="tb-avatarRing">
+                <Avatar size={34} icon={<UserOutlined />}>
+                  {initials}
+                </Avatar>
+              </span>
+              <Text strong>{name}</Text>
+              <DownOutlined style={{ fontSize: 10, opacity: .65 }} />
+            </Space>
+          </Dropdown>
+        </Space>
+      </Header>
+    </>
+  );
 }
